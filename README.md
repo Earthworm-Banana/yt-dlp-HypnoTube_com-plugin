@@ -70,6 +70,10 @@ The plugin extracts various types of metadata, including:
 
 - **Metadata Limitations**: 📄 Some metadata fields may not populate due to limitations in the information accessible from HypnoTube.
 
+- **Private Video Downloads**: 🛑 The plugin cannot download private videos from HypnoTube.
+
+- **Photo Gallery Downloads**: 📷 The plugin is unable to download photo galleries from HypnoTube.
+
 ## Support and Contributions 🤝
 
 For any inquiries or contributions, please [open an issue on GitHub](https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/issues).
