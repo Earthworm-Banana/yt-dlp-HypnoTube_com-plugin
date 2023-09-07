@@ -176,7 +176,7 @@ class HypnotubeChannelsIE(InfoExtractor):
         video_count = 0
         while True:
             channel_url = f'https://hypnotube.com/channels/{channel_id}/{channel_name}/page{page_num}.html'
-            print(f"Checking {channel_url}")
+            #print(f"Checking {channel_url}")
             webpage = self._download_webpage(channel_url, channel_id, note=f'Downloading channel page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
