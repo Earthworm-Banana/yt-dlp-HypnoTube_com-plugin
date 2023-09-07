@@ -2,7 +2,7 @@ from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.compat import compat_str
 from bs4 import BeautifulSoup
 import re
-from rich import print
+#from rich import print
 
 class HypnotubeVideoIE(InfoExtractor):
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
@@ -136,7 +136,7 @@ class HypnotubeUserIE(InfoExtractor):
         video_count = 0
         while True:
             user_url = f'https://hypnotube.com/uploads-by-user/{user_id}/page{page_num}.html'
-            print(f"Checking {user_url}")
+            #print(f"Checking {user_url}")
             webpage = self._download_webpage(user_url, user_id, note=f'Downloading user page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
@@ -144,9 +144,11 @@ class HypnotubeUserIE(InfoExtractor):
 
             if not video_links:
                 if video_count == 0:
-                    print(f"[red]No videos found[/red]")
+                    #print(f"[red]No videos found[/red]")
+                    pass
                 else:
-                    print(f"[green]Found {video_count} videos[/green]")
+                    #print(f"[green]Found {video_count} videos[/green]")
+                    pass
                 break
 
             for link in video_links:
@@ -182,9 +184,11 @@ class HypnotubeChannelsIE(InfoExtractor):
 
             if not video_links:
                 if video_count == 0:
-                    print(f"[red]No videos found[/red]")
+                    #print(f"[red]No videos found[/red]")
+                    pass
                 else:
-                    print(f"[green]Found {video_count} videos[/green]")
+                    #print(f"[green]Found {video_count} videos[/green]")
+                    pass
                 break
 
             for link in video_links:
