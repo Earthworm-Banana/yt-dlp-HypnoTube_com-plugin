@@ -60,15 +60,14 @@ The plugin extracts various types of metadata, including:
 - Video Title 📝
 - Video ID 🆔
 - Release Date 🗓️
-- Uploader Information 👤
+- Uploader 👤
 - View Count 👁️
 - Video Duration ⏰
+- Thumbnails 🖼️
 
 ### Limitations and Known Issues ❗
 
-- **Thumbnail Extraction**: 🖼️ Currently, thumbnail extraction is not supported. Extracting thumbnails proved to be a difficult challenge as the thumbnails don't follow a predictable pattern. Despite numerous attempts, it seems virtually impossible to retrieve thumbnails reliably at this time.
-
-- **Metadata Limitations**: 📄 Some metadata fields may not populate due to limitations in the information accessible from HypnoTube.
+- **Metadata Limitations**: 📄 Some metadata fields may not populate due to limitations in the information accessible from HypnoTube (or haven't gotten around to implement them).
 
 ## Support and Contributions 🤝
 

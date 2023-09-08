@@ -12,7 +12,6 @@ class HypnotubeVideoIE(InfoExtractor):
         video_id = video_id_match.group('id')
         return self._extract_video_info(video_id, url)
 
-
     def _extract_video_info(self, video_id, url):
         webpage = self._download_webpage(url, video_id)
         soup = BeautifulSoup(webpage, 'html.parser')
@@ -22,6 +21,7 @@ class HypnotubeVideoIE(InfoExtractor):
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
         formats = self._extract_formats(webpage)
+        thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
         info = {
@@ -33,11 +33,16 @@ class HypnotubeVideoIE(InfoExtractor):
             'duration': duration,
             'view_count': view_count,
             'formats': formats,
+            'thumbnail': thumbnail,
             'description': description,
             'comments': comments
         }
 
         return info
+
+    def _extract_thumbnail(self, soup):
+        thumbnail_elem = soup.find("meta", property="og:image")
+        return thumbnail_elem['content'] if thumbnail_elem else None
 
     def _extract_uploader_info(self, soup):
         uploader_id = None
