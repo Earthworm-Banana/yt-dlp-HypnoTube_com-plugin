@@ -9,8 +9,8 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
 ## Features 🌟
 
 - **Individual Video Downloads** 🎥: Directly download HypnoTube videos to your machine.
-- **User Uploads** 👤: Retrieve a comprehensive list of videos from a specific HypnoTube user.
-- **Channel Downloads** 📺: Extract an entire set of videos from a HypnoTube channel.
+- **User Uploads** 👤: Download all videos from a specific HypnoTube user.
+- **Channel (Categories) Downloads** 📺: Extract an entire set of videos from a HypnoTube channel (Categories).
 
 ## Installation Guide for Windows 11 🖥️
 
