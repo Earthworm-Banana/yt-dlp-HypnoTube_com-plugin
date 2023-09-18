@@ -17,7 +17,7 @@ class HypnotubeVideoIE(InfoExtractor):
         webpage = self._download_webpage(url, video_id)
         soup = BeautifulSoup(webpage, 'html.parser')
 
-        uploader_id, uploader_name = self._extract_uploader_info(soup)
+        uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
@@ -30,6 +30,7 @@ class HypnotubeVideoIE(InfoExtractor):
             'title': title,
             'uploader': uploader_name,
             'uploader_id': uploader_id,
+            'uploader_url': uploader_url,
             'upload_date': upload_date,
             'duration': duration,
             'view_count': view_count,
@@ -47,12 +48,17 @@ class HypnotubeVideoIE(InfoExtractor):
 
     def _extract_uploader_info(self, soup):
         uploader_id = None
+        uploader_url = None
+        uploader_name = None
+
         uploader_elem = soup.find("a", href=re.compile(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/'))
         if uploader_elem:
             uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
             uploader_id = uploader_id_match.group('id') if uploader_id_match else None
-        uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip() if uploader_elem else None
-        return uploader_id, uploader_name
+            uploader_url = uploader_elem['href']
+            uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip()
+
+        return uploader_id, uploader_name, uploader_url
 
     def _extract_title(self, soup):
         title_elem = soup.find("h1")
