@@ -5,6 +5,7 @@ import re
 #from rich import print
 
 class HypnotubeVideoIE(InfoExtractor):
+    IE_NAME = 'HypnotubeCom:Video_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
 
     def _real_extract(self, url):
@@ -20,7 +21,7 @@ class HypnotubeVideoIE(InfoExtractor):
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
-        formats = self._extract_formats(webpage)
+        formats = self._extract_formats(webpage, url)
         thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
@@ -73,10 +74,10 @@ class HypnotubeVideoIE(InfoExtractor):
         upload_date = stats[2].find("span", class_="sub-label").get_text(strip=True).replace("-", "").replace(":", "").replace(" ", "")[:8]
         return duration, view_count, upload_date
 
-    def _extract_formats(self, webpage):
-        matches = re.findall(r'"(https?://[^"]+\.(?:mov|avi|flv|wmv|mkv|avi|mov|mkv|flv|wmv|mpg|mpeg|m4v|3gp|webm|mp2|m2v|mpeg4|f4v|mp4))"', webpage)
+    def _extract_formats(self, webpage, url):
+        matches = re.findall(r'"(https?://[^"]+\.(?:mov|avi|flv|wmv|mkv|avi|mkv|flv|wmv|mpg|mpeg|m4v|3gp|webm|mp2|m2v|mpeg4|f4v|mp4))"', webpage)
         if not matches:
-            raise ValueError("Could not extract video URLs")
+            raise ValueError(f"Could not extract video, might be private: {url}")
         formats = []
         for i, match in enumerate(matches):
             format_id = "HD" if i == 0 else "SD"
@@ -93,12 +94,35 @@ class HypnotubeVideoIE(InfoExtractor):
         comments_webpage = self._download_webpage(comments_url, video_id, note='Downloading comments page')
         soup = BeautifulSoup(comments_webpage, 'html.parser')
         comments = []
+
         for comment_block in soup.find_all('div', class_='block'):
-            user = comment_block.find('strong').get_text(strip=True)
-            comment = comment_block.find('p').get_text(strip=True)
+            author = comment_block.find('strong').get_text(strip=True)
+
+            # Extracting author_thumbnail, author_id, and author_url
+            author_link = comment_block.find_previous_sibling('a')
+            author_thumbnail = author_link.find('img')['src']
+            author_url = author_link['href']
+            author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
+            if author_id_match:
+                author_id = author_id_match.group(2)
+            else:
+                author_id = None
+
+            # Extracting _time_text
+            time_text_block = comment_block.find('a').find_next_sibling(string=True)
+            if time_text_block:
+                _time_text = time_text_block.strip()
+            else:
+                _time_text = None
+
+            text = comment_block.find('p').get_text(strip=True)
             comments.append({
-                'user': user,
-                'comment': comment
+                'author': author,
+                'author_id': author_id,
+                'author_thumbnail': author_thumbnail,
+                'author_url': author_url,
+                '_time_text': _time_text,
+                'text': text,
             })
         return comments
 
@@ -134,6 +158,7 @@ class HypnotubeVideoIE(InfoExtractor):
 
 
 class HypnotubeUserIE(InfoExtractor):
+    IE_NAME = 'HypnotubeCom:User_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?)'
 
     def _entries(self, user_id):
@@ -173,7 +198,7 @@ class HypnotubeUserIE(InfoExtractor):
 class HypnotubeChannelsIE(InfoExtractor):
     # example: https://hypnotube.com/channels/38/hd/
     # example: https://hypnotube.com/channels/38/hd/page1.html
-
+    IE_NAME = 'HypnotubeCom:Channels_Plugin'
     _VALID_URL = r'https?:\/\/(?:www\.)?hypnotube\.com\/channels\/(?P<id>\d+)\/(?P<name>[^\/]+)(?:\/page(?P<page>\d+)\.html)?\/?'
 
     def _entries(self, channel_id, channel_name):
