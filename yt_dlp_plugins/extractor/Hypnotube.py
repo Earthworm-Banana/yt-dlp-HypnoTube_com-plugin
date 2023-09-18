@@ -55,8 +55,8 @@ class HypnotubeVideoIE(InfoExtractor):
         if uploader_elem:
             uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
             uploader_id = uploader_id_match.group('id') if uploader_id_match else None
-            uploader_url = uploader_elem['href']
-            uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip()
+            uploader_url = uploader_elem['href'] if uploader_elem else None
+            uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip() if uploader_elem else None
 
         return uploader_id, uploader_name, uploader_url
 
