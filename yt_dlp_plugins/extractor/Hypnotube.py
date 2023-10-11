@@ -106,18 +106,26 @@ class HypnotubeVideoIE(InfoExtractor):
 
             # Extracting author_thumbnail, author_id, and author_url
             author_link = comment_block.find_previous_sibling('a')
-            author_thumbnail = author_link.find('img')['src']
-            author_url = author_link['href']
-            author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
-            if author_id_match:
-                author_id = author_id_match.group(2)
+            if author_link is not None:
+                author_thumbnail = author_link.find('img')
+                if author_thumbnail is not None:
+                    author_thumbnail = author_thumbnail['src']
+                else:
+                    author_thumbnail = None
+                author_url = author_link['href']
+                author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
+                if author_id_match:
+                    author_id = author_id_match.group(2)
+                else:
+                    author_id = None
             else:
-                author_id = None
+                author_thumbnail = author_url = author_id = None
 
             # Extracting _time_text
-            time_text_block = comment_block.find('a').find_next_sibling(string=True)
-            if time_text_block:
-                _time_text = time_text_block.strip()
+            a_tag = comment_block.find('a')
+            if a_tag is not None:
+                time_text_block = a_tag.find_next_sibling(string=True)
+                _time_text = time_text_block.strip() if time_text_block else None
             else:
                 _time_text = None
 
@@ -131,8 +139,6 @@ class HypnotubeVideoIE(InfoExtractor):
                 'text': text,
             })
         return comments
-
-
 
     def _extract_user_videos(self, user_id, user_url):
         webpage = self._download_webpage(user_url, user_id)
