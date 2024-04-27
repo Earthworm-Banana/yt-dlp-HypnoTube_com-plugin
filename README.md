@@ -29,7 +29,20 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
     git clone https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin.git
     ```
 
-> 📘 For other methods of installing this plugin package, consult [installing yt-dlp plugins](https://github.com/yt-dlp/yt-dlp#installing-plugins).
+## Pip Install Method (Tested on a-Shell iOS App) 📱
+
+> ⚠️ **Note**: This pip install method has only been tested on the "a-Shell" iOS terminal app.
+
+1. Open your terminal or command line application.
+2. Install the plugin by running:
+
+    ```bash
+    python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/archive/refs/heads/master.zip
+    ```
+
+> 📘 **Note**: This pip install method should work on any system that has yt-dlp installed via pip.
+
+> For other methods of installing this plugin package, consult [installing yt-dlp plugins](https://github.com/yt-dlp/yt-dlp#installing-plugins).
 
 ## Usage Guidelines 📋
 
@@ -53,17 +66,17 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
     yt-dlp "https://hypnotube.com/channels/38/hd/"
     ```
 
-### Metadata Extraction 🔍
+### 🔍 Metadata Extraction
 
 The plugin extracts various types of metadata, including:
 
-- Video Title 📝
-- Video ID 🆔
-- Release Date 🗓️
-- Uploader 👤
-- View Count 👁️
-- Video Duration ⏰
-- Thumbnails 🖼️
+- 📝 Video Title
+- 🆔 Video ID
+- 🗓️ Release Date
+- 👤 Uploader
+- 👁️ View Count
+- ⏰ Video Duration
+- 🖼️ Thumbnails
 
 ### Limitations and Known Issues ❗
 
