@@ -35,7 +35,7 @@ class HypnotubeVideoIE(InfoExtractor):
             'duration': duration,
             'view_count': view_count,
             'formats': formats,
-            'thumbnail': thumbnail,
+            'thumbnail': thumbnail['url'] if thumbnail else None,
             'description': description,
             'comments': comments
         }
@@ -173,9 +173,6 @@ class HypnotubeVideoIE(InfoExtractor):
                     entries.append(self.url_result(video_url, 'HypnotubeVideoIE'))
 
         return self.playlist_result(entries, user_id)
-
-
-
 
 class HypnotubeUserIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:User_Plugin'
