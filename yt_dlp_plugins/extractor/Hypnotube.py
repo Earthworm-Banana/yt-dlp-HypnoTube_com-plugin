@@ -91,7 +91,8 @@ class HypnotubeVideoIE(InfoExtractor):
                 'url': match,
                 'format_id': format_id,
                 'ext': 'mp4',
-                'preference': -1 if i == 0 else -10
+                'preference': -1 if i == 0 else -10,
+                'http_headers': {'Referer': url} 
             })
         return formats
 
