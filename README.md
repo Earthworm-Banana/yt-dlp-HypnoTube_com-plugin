@@ -4,7 +4,7 @@
 
 Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting your video downloading experience from HypnoTube.com. This plugin allows you to efficiently fetch individual videos, complete user uploads, or entire channels using yt-dlp.
 
-> 📝 **Note**: This plugin and README were largely assisted by OpenAI's GPT-4 model. 
+> 📝 **Note**: This plugin and README were largely assisted by OpenAI’s GPT-4 model.
 
 ## Features 🌟
 
@@ -19,26 +19,26 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
 1. Open the Command Prompt (`cmd`).
 2. Navigate to your yt-dlp plugins directory:
 
-    ```bash
-    cd C:\Users\%username%\AppData\Roaming\yt-dlp\plugins
-    ```
-   
+```bash
+cd C:\Users\%username%\AppData\Roaming\yt-dlp\plugins
+```
+
 3. Clone the plugin repository:
 
-    ```bash
-    git clone https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin.git
-    ```
+```bash
+git clone https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin.git
+```
 
 ## Pip Install Method (Tested on a-Shell iOS App) 📱
 
-> ⚠️ **Note**: This pip install method has only been tested on the "a-Shell" iOS terminal app.
+> ⚠️ **Note**: This pip install method has only been tested on the “a-Shell” iOS terminal app.
 
 1. Open your terminal or command line application.
 2. Install the plugin by running:
 
-    ```bash
-    python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/archive/refs/heads/master.zip
-    ```
+```bash
+python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/archive/refs/heads/master.zip
+```
 
 > 📘 **Note**: This pip install method should work on any system that has yt-dlp installed via pip.
 
@@ -49,22 +49,22 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
 ### Commands 📜
 
 - **Individual Video Download** 🎥:
-    
-    ```bash
-    yt-dlp "https://hypnotube.com/video/shock-409.html"
-    ```
+
+```bash
+yt-dlp “https://hypnotube.com/video/shock-409.html”
+```
 
 - **User Uploads Download** 👤:
 
-    ```bash
-    yt-dlp "https://hypnotube.com/user/ambersis-3082/"
-    ```
-  
+```bash
+yt-dlp “https://hypnotube.com/user/ambersis-3082/“
+```
+
 - **Channel Download** 📺:
 
-    ```bash
-    yt-dlp "https://hypnotube.com/channels/38/hd/"
-    ```
+```bash
+yt-dlp “https://hypnotube.com/channels/38/hd/“
+```
 
 ### 🔍 Metadata Extraction
 
@@ -77,6 +77,14 @@ The plugin extracts various types of metadata, including:
 - 👁️ View Count
 - ⏰ Video Duration
 - 🖼️ Thumbnails
+
+To retrieve thumbnails, use:
+
+```bash
+yt-dlp —add-headers “Referer: https://hypnotube.com” [URL]
+```
+
+Also, use either `—embed-thumbnails` (recommended) or `—write-thumbnail` for proper thumbnail handling.
 
 ### Limitations and Known Issues ❗
 
