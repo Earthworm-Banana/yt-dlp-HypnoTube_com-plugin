@@ -37,7 +37,8 @@ class HypnotubeVideoIE(InfoExtractor):
             'formats': formats,
             'thumbnail': thumbnail,
             'description': description,
-            'comments': comments
+            'comments': comments,
+            'http_headers': {'Referer': url}
         }
 
         return info
