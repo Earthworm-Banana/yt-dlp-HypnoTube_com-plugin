@@ -37,15 +37,21 @@ class HypnotubeVideoIE(InfoExtractor):
             'formats': formats,
             'thumbnail': thumbnail,
             'description': description,
-            'comments': comments,
-            'http_headers': {'Referer': url}
+            'comments': comments
         }
 
         return info
 
     def _extract_thumbnail(self, soup):
         thumbnail_elem = soup.find("meta", property="og:image")
-        return thumbnail_elem['content'] if thumbnail_elem else None
+        if thumbnail_elem:
+            thumbnail_url = thumbnail_elem['content']
+            thumbnail_headers = {'Referer': 'https://hypnotube.com'}
+
+            # Return a dictionary including both the URL and headers
+            return {"url": thumbnail_url, "headers": thumbnail_headers}
+
+        return None
 
     def _extract_uploader_info(self, soup):
         uploader_id = None
