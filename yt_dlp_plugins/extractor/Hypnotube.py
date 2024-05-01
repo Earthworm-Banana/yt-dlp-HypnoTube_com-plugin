@@ -49,7 +49,7 @@ class HypnotubeVideoIE(InfoExtractor):
             thumbnail_headers = {'Referer': 'https://hypnotube.com'}
 
             # Return a dictionary including both the URL and headers
-            return {"url": thumbnail_url, "headers": thumbnail_headers}
+            return {"url": thumbnail_url, "http_headers": thumbnail_headers}
 
         return None
 
