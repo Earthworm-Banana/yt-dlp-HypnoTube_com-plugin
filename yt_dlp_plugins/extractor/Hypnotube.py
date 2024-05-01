@@ -35,9 +35,10 @@ class HypnotubeVideoIE(InfoExtractor):
             'duration': duration,
             'view_count': view_count,
             'formats': formats,
-            'thumbnail': thumbnail['url'] if thumbnail else None,
+            'thumbnail': thumbnail,
             'description': description,
-            'comments': comments
+            'comments': comments,
+            'http_headers': {'Referer': 'https://hypnotube.com'}
         }
 
         return info
@@ -46,12 +47,11 @@ class HypnotubeVideoIE(InfoExtractor):
         thumbnail_elem = soup.find("meta", property="og:image")
         if thumbnail_elem:
             thumbnail_url = thumbnail_elem['content']
-            thumbnail_headers = {'Referer': 'https://hypnotube.com'}
-
-            # Return a dictionary including both the URL and headers
-            return {"url": thumbnail_url, "http_headers": thumbnail_headers}
-
+            # Make a request with the necessary headers
+            thumbnail_request = self._request_webpage(thumbnail_url, headers={'Referer': 'https://hypnotube.com'})
+            return thumbnail_request.url  # Return the direct URL of the thumbnail
         return None
+
 
     def _extract_uploader_info(self, soup):
         uploader_id = None
@@ -173,6 +173,9 @@ class HypnotubeVideoIE(InfoExtractor):
                     entries.append(self.url_result(video_url, 'HypnotubeVideoIE'))
 
         return self.playlist_result(entries, user_id)
+
+
+
 
 class HypnotubeUserIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:User_Plugin'
