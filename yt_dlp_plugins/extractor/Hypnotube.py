@@ -45,13 +45,7 @@ class HypnotubeVideoIE(InfoExtractor):
 
     def _extract_thumbnail(self, soup):
         thumbnail_elem = soup.find("meta", property="og:image")
-        if thumbnail_elem:
-            thumbnail_url = thumbnail_elem['content']
-            # Make a request with the necessary headers
-            thumbnail_request = self._request_webpage(thumbnail_url, headers={'Referer': 'https://hypnotube.com'})
-            return thumbnail_request.url  # Return the direct URL of the thumbnail
-        return None
-
+        return thumbnail_elem['content'] if thumbnail_elem else None
 
     def _extract_uploader_info(self, soup):
         uploader_id = None
