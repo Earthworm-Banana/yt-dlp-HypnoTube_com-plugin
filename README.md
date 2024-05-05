@@ -88,10 +88,10 @@ The plugin extracts various types of metadata, including:
 To retrieve thumbnails, use:
 
 ```bash
-yt-dlp —add-headers “Referer: https://hypnotube.com” [URL]
+yt-dlp —-add-headers “Referer: https://hypnotube.com” [URL]
 ```
 
-Also, use either `—embed-thumbnails` (recommended) or `—write-thumbnail` for proper thumbnail handling.
+Also, use either `-—embed-thumbnails` (recommended) or `-—write-thumbnail` for proper thumbnail handling.
 
 ### Limitations and Known Issues ❗
 
