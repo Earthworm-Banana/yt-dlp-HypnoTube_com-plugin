@@ -2,7 +2,7 @@
 
 ## Introduction 📚
 
-Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting your video downloading experience from HypnoTube.com. This plugin allows you to efficiently fetch individual videos, complete user uploads, or entire channels using yt-dlp.
+Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting your video downloading experience from HypnoTube.com. This plugin allows you to efficiently fetch individual videos, complete user uploads, entire channels, or even full playlists using yt-dlp.
 
 > 📝 **Note**: This plugin and README were largely assisted by OpenAI’s GPT-4 model.
 
@@ -11,6 +11,7 @@ Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting yo
 - **Individual Video Downloads** 🎥: Directly download HypnoTube videos to your machine.
 - **User Uploads** 👤: Download all videos from a specific HypnoTube user.
 - **Channel (Categories) Downloads** 📺: Extract an entire set of videos from a HypnoTube channel (Categories).
+- **Playlist Downloads** 📋: Retrieve all videos from a specified HypnoTube playlist.
 
 ## Installation Guide for Windows 11 🖥️
 
@@ -64,6 +65,12 @@ yt-dlp “https://hypnotube.com/user/ambersis-3082/“
 
 ```bash
 yt-dlp “https://hypnotube.com/channels/38/hd/“
+```
+
+- **Playlist Download** 📋:
+
+```bash
+yt-dlp “https://hypnotube.com/playlist/93707/stim-gooning/”
 ```
 
 ### 🔍 Metadata Extraction
