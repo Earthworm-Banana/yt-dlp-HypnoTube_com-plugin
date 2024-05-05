@@ -97,7 +97,7 @@ Also, use either `-—embed-thumbnail` (recommended) or `-—write-thumbnail` fo
 
 - **Metadata Limitations**: 📄 Some metadata fields may not populate due to limitations in the information accessible from HypnoTube (or haven't gotten around to implement them).
 
-- **Private Video Downloads**: 🛑 The plugin cannot download private videos from HypnoTube.
+- **Private Video Downloads**: 🛑 The plugin cannot download private videos from HypnoTube unless you use cookies from a logged-in session. Note: This has not been thoroughly tested.
 
 - **Photo Gallery Downloads**: 📷 The plugin is unable to download photo galleries from HypnoTube.
 
