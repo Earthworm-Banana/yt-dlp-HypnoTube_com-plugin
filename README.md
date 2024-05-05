@@ -91,7 +91,7 @@ To retrieve thumbnails, use:
 yt-dlp —-add-headers “Referer: https://hypnotube.com” [URL]
 ```
 
-Also, use either `-—embed-thumbnails` (recommended) or `-—write-thumbnail` for proper thumbnail handling.
+Also, use either `-—embed-thumbnail` (recommended) or `-—write-thumbnail` for proper thumbnail handling.
 
 ### Limitations and Known Issues ❗
 
