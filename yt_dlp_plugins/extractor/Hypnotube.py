@@ -167,6 +167,44 @@ class HypnotubeVideoIE(InfoExtractor):
 
         return self.playlist_result(entries, user_id)
 
+class HypnotubePlaylistIE(InfoExtractor):
+    IE_NAME = 'HypnotubeCom:Playlist'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/[^/]+(?:/page(?P<page>\d+)\.html)?/?'
+
+    def _real_extract(self, url):
+        playlist_id = self._match_id(url)
+        playlist_title = None
+        entries = []
+
+        page_num = 1
+        while True:
+            if page_num == 1:
+                page_url = url
+            else:
+                page_url = f'https://hypnotube.com/playlist/{playlist_id}/visual-training/page{page_num}.html'
+            
+            webpage = self._download_webpage(page_url, playlist_id, note=f'Downloading page {page_num}')
+            soup = BeautifulSoup(webpage, 'html.parser')
+            
+            if not playlist_title:  # Only get the title from the first page
+                playlist_title_elem = soup.find('h1')
+                playlist_title = playlist_title_elem.get_text(strip=True) if playlist_title_elem else f'Playlist {playlist_id}'
+
+            new_entries = list(self._entries(soup))
+            if not new_entries:
+                break
+            entries.extend(new_entries)
+            page_num += 1
+
+        return self.playlist_result(entries, playlist_id, playlist_title)
+
+    def _entries(self, soup):
+        for a in soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(\d+)\.html')):
+            video_url = a['href']
+            video_id_match = re.search(r'.+-(\d+)\.html', video_url)
+            if video_id_match:
+                video_id = video_id_match.group(1)
+                yield self.url_result(video_url, ie_key=HypnotubeVideoIE.ie_key())
 
 
 
