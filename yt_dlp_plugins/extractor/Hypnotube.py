@@ -233,7 +233,7 @@ class HypnotubeFavoritesIE(InfoExtractor):
             for link in video_links:
                 video_count += 1
                 video_url = link['href']
-                yield self.url_result(video_url, ie='HypnotubeVideoIE')
+                yield self.url_result(video_url, ie=HypnotubeVideoIE.ie_key())
 
             page_num += 1
 
