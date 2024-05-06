@@ -207,6 +207,45 @@ class HypnotubePlaylistIE(InfoExtractor):
                 yield self.url_result(video_url, ie_key=HypnotubeVideoIE.ie_key())
 
 
+class HypnotubeFavoritesIE(InfoExtractor):
+    IE_NAME = 'HypnotubeCom:Favorites'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/favorites/(?:page(?P<page_num>\d+))?'
+
+    def _entries(self, user_id):
+        page_num = 1
+        video_count = 0
+        while True:
+            favorites_url = f'https://hypnotube.com/favorites/page{page_num}.html'
+            webpage = self._download_webpage(favorites_url, user_id, note=f'Downloading favorites page {page_num}')
+            soup = BeautifulSoup(webpage, 'html.parser')
+
+            video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
+            if not video_links:
+                if video_count == 0:
+                    self.report_warning(
+                        "No videos found on the favorites page. This could be due to several reasons: "
+                        "1. You may need to log in using a valid cookie file. "
+                        "2. Your cookie may have expired. "
+                        "3. There may genuinely be no videos in your favorites. "
+                        "4. There could be a bug with the page or extractor.")
+                break
+
+            for link in video_links:
+                video_count += 1
+                video_url = link['href']
+                yield self.url_result(video_url, ie='HypnotubeVideoIE')
+
+            page_num += 1
+
+    def _real_extract(self, url):
+        mobj = re.match(self._VALID_URL, url)
+        user_id = 'favorite'  # Not specific to a user, but a generic session-based favorites.
+        if not mobj:
+            raise ExtractorError('Could not extract user or page number from URL', expected=True)
+        
+        entries = self._entries(user_id)
+        return self.playlist_result(entries, playlist_id=user_id, playlist_title="User Favorites")
+
 
 class HypnotubeUserIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:User_Plugin'
