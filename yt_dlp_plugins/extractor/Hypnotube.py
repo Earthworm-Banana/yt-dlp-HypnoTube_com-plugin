@@ -169,10 +169,12 @@ class HypnotubeVideoIE(InfoExtractor):
 
 class HypnotubePlaylistIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:Playlist'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/[^/]+(?:/page(?P<page>\d+)\.html)?/?'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/(?P<slug>[^/]+)(?:/page(?P<page>\d+)\.html)?/?'
 
     def _real_extract(self, url):
-        playlist_id = self._match_id(url)
+        mobj = self._match_valid_url(url)
+        playlist_id = mobj.group('id')
+        slug = mobj.group('slug')
         playlist_title = None
         entries = []
 
@@ -181,9 +183,11 @@ class HypnotubePlaylistIE(InfoExtractor):
             if page_num == 1:
                 page_url = url
             else:
-                page_url = f'https://hypnotube.com/playlist/{playlist_id}/visual-training/page{page_num}.html'
+                page_url = f'https://hypnotube.com/playlist/{playlist_id}/{slug}/page{page_num}.html'
             
-            webpage = self._download_webpage(page_url, playlist_id, note=f'Downloading page {page_num}')
+            webpage = self._download_webpage(page_url, playlist_id, note=f'Downloading page {page_num}', fatal=False)
+            if webpage is None:  # Handle redirect or invalid page
+                break
             soup = BeautifulSoup(webpage, 'html.parser')
             
             if not playlist_title:  # Only get the title from the first page
