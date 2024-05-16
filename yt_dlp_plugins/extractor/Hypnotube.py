@@ -81,12 +81,15 @@ class HypnotubeVideoIE(InfoExtractor):
         return duration, view_count, upload_date
 
     def _extract_formats(self, webpage, url):
-        matches = re.findall(r'"(https?://[^"]+\.(?:mov|avi|flv|wmv|mkv|avi|mkv|flv|wmv|mpg|mpeg|m4v|3gp|webm|mp2|m2v|mpeg4|f4v|mp4))"', webpage)
+        matches = re.findall(r'"(https?://[^"]+\.(?:mov|avi|flv|wmv|mkv|avi|mkv|flv|wmv|mpg|mpeg|m4v|3gp|webm|mp2|m2v|mpeg4|f4v|mp4))"', webpage, re.IGNORECASE)
         if not matches:
             raise ValueError(f"Could not extract video, might be private: {url}")
         formats = []
         for i, match in enumerate(matches):
-            format_id = "HD" if i == 0 else "SD"
+            if len(matches) == 1:
+                format_id = "SD"
+            else:
+                format_id = "HD" if i == 0 else "SD"
             formats.append({
                 'url': match,
                 'format_id': format_id,
@@ -95,6 +98,7 @@ class HypnotubeVideoIE(InfoExtractor):
                 'http_headers': {'Referer': url} 
             })
         return formats
+
 
     def _extract_comments(self, video_id):
         comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
