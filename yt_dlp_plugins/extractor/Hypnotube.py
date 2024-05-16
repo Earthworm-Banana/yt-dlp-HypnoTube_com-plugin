@@ -185,9 +185,14 @@ class HypnotubePlaylistIE(InfoExtractor):
             else:
                 page_url = f'https://hypnotube.com/playlist/{playlist_id}/{slug}/page{page_num}.html'
             
-            webpage = self._download_webpage(page_url, playlist_id, note=f'Downloading page {page_num}', fatal=False)
+            webpage, handle = self._download_webpage_handle(page_url, playlist_id, note=f'Downloading page {page_num}', fatal=False)
             if webpage is None:  # Handle redirect or invalid page
                 break
+
+            # Check if the final URL after redirects is the homepage
+            if handle.geturl() == 'https://hypnotube.com/':
+                break
+            
             soup = BeautifulSoup(webpage, 'html.parser')
             
             if not playlist_title:  # Only get the title from the first page
@@ -209,6 +214,7 @@ class HypnotubePlaylistIE(InfoExtractor):
             if video_id_match:
                 video_id = video_id_match.group(1)
                 yield self.url_result(video_url, ie_key=HypnotubeVideoIE.ie_key())
+
 
 
 class HypnotubeFavoritesIE(InfoExtractor):
