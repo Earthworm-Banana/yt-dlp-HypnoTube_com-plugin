@@ -2,6 +2,7 @@ from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.compat import compat_str
 from bs4 import BeautifulSoup
 import re
+from urllib.parse import urlparse, urlunparse
 #from rich import print
 
 class HypnotubeVideoIE(InfoExtractor):
@@ -215,10 +216,13 @@ class HypnotubePlaylistIE(InfoExtractor):
     def _entries(self, soup):
         for a in soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(\d+)\.html')):
             video_url = a['href']
-            video_id_match = re.search(r'.+-(\d+)\.html', video_url)
+            parsed_url = urlparse(video_url)
+            video_url_without_params = urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path, '', '', ''))
+            video_id_match = re.search(r'.+-(\d+)\.html', video_url_without_params)
             if video_id_match:
                 video_id = video_id_match.group(1)
-                yield self.url_result(video_url, ie_key=HypnotubeVideoIE.ie_key())
+                yield self.url_result(video_url_without_params, ie_key=HypnotubeVideoIE.ie_key())
+
                 
 
 class HypnotubeFavoritesIE(InfoExtractor):
