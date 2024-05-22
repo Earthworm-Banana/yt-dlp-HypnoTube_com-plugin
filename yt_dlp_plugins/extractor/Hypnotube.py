@@ -195,7 +195,7 @@ class HypnotubePlaylistIE(InfoExtractor):
                 break
 
             # Check if the final URL after redirects is different from the original URL
-            if handle.geturl() != page_url:
+            if handle.url != page_url:
                 self.report_warning(f'Playlist {playlist_id} appears to be invalid, redirected to a different page.')
                 break
             
@@ -222,6 +222,7 @@ class HypnotubePlaylistIE(InfoExtractor):
             if video_id_match:
                 video_id = video_id_match.group(1)
                 yield self.url_result(video_url_without_params, ie_key=HypnotubeVideoIE.ie_key())
+
 
                 
 
