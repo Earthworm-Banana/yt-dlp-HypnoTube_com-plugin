@@ -1,9 +1,9 @@
 from yt_dlp.extractor.common import InfoExtractor
 from yt_dlp.compat import compat_str
+from yt_dlp.extractor import generic
 from bs4 import BeautifulSoup
 import re
 from urllib.parse import urlparse, urlunparse
-#from rich import print
 
 class HypnotubeVideoIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:Video_Plugin'
@@ -22,7 +22,7 @@ class HypnotubeVideoIE(InfoExtractor):
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
-        formats = self._extract_formats(webpage, url)
+        formats = self._extract_formats(url)
         thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
@@ -81,25 +81,10 @@ class HypnotubeVideoIE(InfoExtractor):
         upload_date = stats[2].find("span", class_="sub-label").get_text(strip=True).replace("-", "").replace(":", "").replace(" ", "")[:8]
         return duration, view_count, upload_date
 
-    def _extract_formats(self, webpage, url):
-        matches = re.findall(r'"(https?://[^"]+\.(?:mov|avi|flv|wmv|mkv|avi|mkv|flv|wmv|mpg|mpeg|m4v|3gp|webm|mp2|m2v|mpeg4|f4v|mp4))"', webpage, re.IGNORECASE)
-        if not matches:
-            raise ValueError(f"Could not extract video, might be private: {url}")
-        formats = []
-        for i, match in enumerate(matches):
-            if len(matches) == 1:
-                format_id = "SD"
-            else:
-                format_id = "HD" if i == 0 else "SD"
-            formats.append({
-                'url': match,
-                'format_id': format_id,
-                'ext': 'mp4',
-                'preference': -1 if i == 0 else -10,
-                'http_headers': {'Referer': url} 
-            })
-        return formats
-
+    def _extract_formats(self, url):
+        generic_extractor = generic.GenericIE()
+        generic_extractor.set_downloader(self._downloader)
+        return generic_extractor.extract(url)['formats']
 
     def _extract_comments(self, video_id):
         comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
@@ -110,7 +95,6 @@ class HypnotubeVideoIE(InfoExtractor):
         for comment_block in soup.find_all('div', class_='block'):
             author = comment_block.find('strong').get_text(strip=True)
 
-            # Extracting author_thumbnail, author_id, and author_url
             author_link = comment_block.find_previous_sibling('a')
             if author_link is not None:
                 author_thumbnail = author_link.find('img')
@@ -127,7 +111,6 @@ class HypnotubeVideoIE(InfoExtractor):
             else:
                 author_thumbnail = author_url = author_id = None
 
-            # Extracting _time_text
             a_tag = comment_block.find('a')
             if a_tag is not None:
                 time_text_block = a_tag.find_next_sibling(string=True)
@@ -185,7 +168,7 @@ class HypnotubePlaylistIE(InfoExtractor):
 
         page_num = 1
         while True:
-            if page_num == 1:
+            if (page_num == 1):
                 page_url = url
             else:
                 page_url = f'https://hypnotube.com/playlist/{playlist_id}/{slug}/page{page_num}.html'
@@ -222,9 +205,6 @@ class HypnotubePlaylistIE(InfoExtractor):
             if video_id_match:
                 video_id = video_id_match.group(1)
                 yield self.url_result(video_url_without_params, ie_key=HypnotubeVideoIE.ie_key())
-
-
-                
 
 class HypnotubeFavoritesIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:Favorites'
@@ -265,7 +245,6 @@ class HypnotubeFavoritesIE(InfoExtractor):
         entries = self._entries(user_id)
         return self.playlist_result(entries, playlist_id=user_id, playlist_title="User Favorites")
 
-
 class HypnotubeUserIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:User_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?)'
@@ -275,7 +254,6 @@ class HypnotubeUserIE(InfoExtractor):
         video_count = 0
         while True:
             user_url = f'https://hypnotube.com/uploads-by-user/{user_id}/page{page_num}.html'
-            #print(f"Checking {user_url}")
             webpage = self._download_webpage(user_url, user_id, note=f'Downloading user page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
@@ -283,10 +261,8 @@ class HypnotubeUserIE(InfoExtractor):
 
             if not video_links:
                 if video_count == 0:
-                    #print(f"[red]No videos found[/red]")
                     pass
                 else:
-                    #print(f"[green]Found {video_count} videos[/green]")
                     pass
                 break
 
@@ -303,10 +279,7 @@ class HypnotubeUserIE(InfoExtractor):
         entries = self._entries(user_id)
         return self.playlist_result(entries, user_id)
 
-
 class HypnotubeChannelsIE(InfoExtractor):
-    # example: https://hypnotube.com/channels/38/hd/
-    # example: https://hypnotube.com/channels/38/hd/page1.html
     IE_NAME = 'HypnotubeCom:Channels_Plugin'
     _VALID_URL = r'https?:\/\/(?:www\.)?hypnotube\.com\/channels\/(?P<id>\d+)\/(?P<name>[^\/]+)(?:\/page(?P<page>\d+)\.html)?\/?'
 
@@ -315,7 +288,6 @@ class HypnotubeChannelsIE(InfoExtractor):
         video_count = 0
         while True:
             channel_url = f'https://hypnotube.com/channels/{channel_id}/{channel_name}/page{page_num}.html'
-            #print(f"Checking {channel_url}")
             webpage = self._download_webpage(channel_url, channel_id, note=f'Downloading channel page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
@@ -323,10 +295,8 @@ class HypnotubeChannelsIE(InfoExtractor):
 
             if not video_links:
                 if video_count == 0:
-                    #print(f"[red]No videos found[/red]")
                     pass
                 else:
-                    #print(f"[green]Found {video_count} videos[/green]")
                     pass
                 break
 
