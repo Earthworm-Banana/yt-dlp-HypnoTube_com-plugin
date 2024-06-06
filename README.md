@@ -4,7 +4,7 @@
 
 Welcome to the HypnoTube.com YT-DLP Plugin, a specialized tool for augmenting your video downloading experience from HypnoTube.com. This plugin allows you to efficiently fetch individual videos, complete user uploads, entire channels, or even full playlists using yt-dlp.
 
-> 📝 **Note**: This plugin and README were largely assisted by OpenAI’s GPT-4 model.
+> 📝 **Note**: This plugin and README were largely assisted by OpenAI's GPT-4 model.
 
 ## Features 🌟
 
@@ -30,15 +30,21 @@ cd C:\Users\%username%\AppData\Roaming\yt-dlp\plugins
 git clone https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin.git
 ```
 
-## Pip Install Method (Tested on a-Shell iOS App) 📱
-
-> ⚠️ **Note**: This pip install method has only been tested on the “a-Shell” iOS terminal app.
-
-1. Open your terminal or command line application.
-2. Install the plugin by running:
+4. Ensure that BeautifulSoup4 (bs4) is installed:
 
 ```bash
-python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/archive/refs/heads/master.zip
+pip install bs4
+```
+
+## Pip Install Method (Tested on a-Shell iOS App) 📱
+
+> ⚠️ **Note**: This pip install method has only been tested on the "a-Shell" iOS terminal app.
+
+1. Open your terminal or command line application.
+2. Install the plugin and BeautifulSoup4 (bs4) by running:
+
+```bash
+python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_com-plugin/archive/refs/heads/master.zip bs4
 ```
 
 > 📘 **Note**: This pip install method should work on any system that has yt-dlp installed via pip.
@@ -52,25 +58,25 @@ python3 -m pip install -U https://github.com/Earthworm-Banana/yt-dlp-HypnoTube_c
 - **Individual Video Download** 🎥:
 
 ```bash
-yt-dlp “https://hypnotube.com/video/shock-409.html”
+yt-dlp "https://hypnotube.com/video/shock-409.html"
 ```
 
 - **User Uploads Download** 👤:
 
 ```bash
-yt-dlp “https://hypnotube.com/user/ambersis-3082/“
+yt-dlp "https://hypnotube.com/user/ambersis-3082/"
 ```
 
 - **Channel Download** 📺:
 
 ```bash
-yt-dlp “https://hypnotube.com/channels/38/hd/“
+yt-dlp "https://hypnotube.com/channels/38/hd/"
 ```
 
 - **Playlist Download** 📋:
 
 ```bash
-yt-dlp “https://hypnotube.com/playlist/93707/stim-gooning/”
+yt-dlp "https://hypnotube.com/playlist/93707/stim-gooning/"
 ```
 
 ### 🔍 Metadata Extraction
@@ -85,13 +91,11 @@ The plugin extracts various types of metadata, including:
 - ⏰ Video Duration
 - 🖼️ Thumbnails
 
-To retrieve thumbnails, use:
+To retrieve thumbnails it may be required to use:
 
 ```bash
-yt-dlp —-add-headers “Referer: https://hypnotube.com” [URL]
+yt-dlp --add-headers "Referer: https://hypnotube.com" [URL]
 ```
-
-Also, use either `-—embed-thumbnail` (recommended) or `-—write-thumbnail` for proper thumbnail handling.
 
 ### Limitations and Known Issues ❗
 
