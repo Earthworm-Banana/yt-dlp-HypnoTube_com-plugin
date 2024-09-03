@@ -135,12 +135,14 @@ class HypnotubeVideoIE(InfoExtractor):
                     author_thumbnail = author_thumbnail['src']
                 else:
                     author_thumbnail = None
-                author_url = author_link['href']
-                author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
-                if author_id_match:
-                    author_id = author_id_match.group(2)
-                else:
-                    author_id = None
+                author_url = author_link.get('href')
+                author_id = None
+
+                if author_url:
+                    author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
+                    if author_id_match:
+                        author_id = author_id_match.group(2)
+
             else:
                 author_thumbnail = author_url = author_id = None
 
