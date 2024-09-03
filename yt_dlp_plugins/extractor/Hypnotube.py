@@ -22,7 +22,7 @@ class HypnotubeVideoIE(InfoExtractor):
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
-        formats = self._extract_formats(url)
+        formats = self._extract_formats(webpage, url)
         thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
@@ -81,10 +81,43 @@ class HypnotubeVideoIE(InfoExtractor):
         upload_date = stats[2].find("span", class_="sub-label").get_text(strip=True).replace("-", "").replace(":", "").replace(" ", "")[:8]
         return duration, view_count, upload_date
 
-    def _extract_formats(self, url):
-        generic_extractor = generic.GenericIE()
-        generic_extractor.set_downloader(self._downloader)
-        return generic_extractor.extract(url)['formats']
+    def _extract_formats(self, webpage, url):
+        soup = BeautifulSoup(webpage, 'html.parser')
+        video_elem = soup.find('video', id='thisPlayer')
+        if not video_elem:
+            raise ValueError(f"Could not find video element in the webpage: {url}")
+        
+        formats = []
+        for source in video_elem.find_all('source'):
+            format_url = source.get('src')
+            format_label = source.get('label')
+            if not format_url or not format_label:
+                continue
+            
+            preference = -10 if format_label.lower() == 'sd' else 0
+
+            formats.append({
+                'url': format_url,
+                'format_id': format_label,
+                'ext': 'mp4',
+                'preference': preference,
+                'http_headers': {'Referer': 'https://hypnotube.com/index.php'}
+            })
+        
+        if not formats:
+            try:
+                self.report_warning('No formats found, using fallback method.')
+                generic_extractor = generic.GenericIE()
+                generic_extractor.set_downloader(self._downloader)
+                formats = generic_extractor.extract(url)['formats']
+            except Exception as e:
+                raise ValueError(f"Fallback extraction failed: {str(e)}")
+
+        if not formats:
+            raise ValueError(f"Could not extract video formats, might be private: {url}")
+        
+        return formats
+
 
     def _extract_comments(self, video_id):
         comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
@@ -238,7 +271,7 @@ class HypnotubeFavoritesIE(InfoExtractor):
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
-        user_id = 'favorite'  # Not specific to a user, but a generic session-based favorites.
+        user_id = 'favorite'  # Not easy to get specific a user favorite, so use placeholder for now.
         if not mobj:
             raise ExtractorError('Could not extract user or page number from URL', expected=True)
         
