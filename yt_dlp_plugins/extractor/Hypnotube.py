@@ -46,7 +46,8 @@ class HypnotubeBaseIE(InfoExtractor):
             logged_in_user = user_name_elem.get_text(strip=True)
             self.to_screen(f"Logged in as: {logged_in_user}")
         else:
-            self.to_screen("Not logged in")
+            raise ExtractorError('Login failed', expected=False)
+            
 
 
     def _handle_login(self):
