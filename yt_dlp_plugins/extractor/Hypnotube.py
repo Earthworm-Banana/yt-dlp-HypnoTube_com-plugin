@@ -15,15 +15,12 @@ class HypnotubeBaseIE(InfoExtractor):
     _NETRC_MACHINE = 'hypnotube'
 
     def _perform_login(self, username, password):
-        login_page, url_handle = self._download_webpage_handle(self._LOGIN_URL, None, 'Downloading login page')
-
-        # Extract the hidden form inputs (CSRF token or other hidden fields)
-        login_form = self._hidden_inputs(login_page)
-        login_form.update({
+        # Manually construct the login form without downloading the login page
+        login_form = {
             'ahd_username': username,
             'ahd_password': password,
             'Submit': ''
-        })
+        }
 
         # Send the login form with the credentials
         login_response = self._download_webpage(
@@ -35,10 +32,9 @@ class HypnotubeBaseIE(InfoExtractor):
         if re.search(r'<div class="notification error">The login information you have provided was incorrect', login_response, re.IGNORECASE):
             raise ExtractorError('Login failed: incorrect username or password', expected=True)
 
-        self.report_login()
-
         # Now check if the user is logged in and extract the username
         self._detect_logged_in_user(login_response)
+
 
     def _detect_logged_in_user(self, webpage):
         """Extract and display the logged-in user's name."""
@@ -136,11 +132,20 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
 
         if not video_elem:
             # Check if there is an overlay message, typically for restrictions
-            notice_elem = soup.find(id='notice_overl')
+            notice_elem = soup.find(id='notice_overl') or soup.find(id='playerOverlay')
             if notice_elem:
+                # Find the first <br> tag and remove it along with everything after
+                br_tag = notice_elem.find('br')
+                if br_tag:
+                    for sibling in br_tag.find_all_next():
+                        sibling.decompose()
+                    br_tag.decompose()  # Remove the <br> tag itself
+
                 notice_text = notice_elem.get_text(strip=True)
                 raise ExtractorError(f"Video cannot be accessed, HypnoTube says: {notice_text}", expected=True)
             raise ExtractorError(f"Could not find video element on the page: {url}")
+
+
 
         formats = []
         for source in video_elem.find_all('source'):
