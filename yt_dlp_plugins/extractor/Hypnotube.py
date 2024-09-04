@@ -133,16 +133,22 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
     def _extract_formats(self, webpage, url):
         soup = BeautifulSoup(webpage, 'html.parser')
         video_elem = soup.find('video', id='thisPlayer')
+
         if not video_elem:
-            raise ValueError(f"Could not find video element in the webpage: {url}")
-        
+            # Check if there is an overlay message, typically for restrictions
+            notice_elem = soup.find(id='notice_overl')
+            if notice_elem:
+                notice_text = notice_elem.get_text(strip=True)
+                raise ExtractorError(f"Video cannot be accessed, HypnoTube says: {notice_text}", expected=True)
+            raise ExtractorError(f"Could not find video element on the page: {url}")
+
         formats = []
         for source in video_elem.find_all('source'):
             format_url = source.get('src')
             format_label = source.get('label')
             if not format_url or not format_label:
                 continue
-            
+
             preference = -10 if format_label.lower() == 'sd' else 0
             formats.append({
                 'url': format_url,
@@ -151,20 +157,21 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
                 'preference': preference,
                 'http_headers': {'Referer': 'https://hypnotube.com/index.php'}
             })
-        
+
         if not formats:
             try:
-                self.report_warning('No formats found, using fallback method.')
+                self.report_warning('No formats found, attempting fallback extraction.')
                 generic_extractor = generic.GenericIE()
                 generic_extractor.set_downloader(self._downloader)
                 formats = generic_extractor.extract(url)['formats']
             except Exception as e:
-                raise ValueError(f"Fallback extraction failed: {str(e)}")
+                raise ExtractorError(f"Fallback extraction failed. Error: {str(e)}", cause=e)
 
         if not formats:
-            raise ValueError(f"Could not extract video formats, might be private: {url}")
-        
+            raise ExtractorError(f"Could not extract video formats, the video might be private or restricted: {url}")
+
         return formats
+
 
     def _extract_comments(self, video_id):
         comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
@@ -211,7 +218,7 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
             })
         return comments
 
-class HypnotubePlaylistIE(InfoExtractor):
+class HypnotubePlaylistIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Playlist'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/(?P<slug>[^/]+)(?:/page(?P<page>\d+)\.html)?/?'
 
@@ -309,7 +316,7 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
 
 
 
-class HypnotubeUserIE(InfoExtractor):
+class HypnotubeUserIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:User_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?)'
 
@@ -343,7 +350,7 @@ class HypnotubeUserIE(InfoExtractor):
         entries = self._entries(user_id)
         return self.playlist_result(entries, user_id)
 
-class HypnotubeChannelsIE(InfoExtractor):
+class HypnotubeChannelsIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Channels_Plugin'
     _VALID_URL = r'https?:\/\/(?:www\.)?hypnotube\.com\/channels\/(?P<id>\d+)\/(?P<name>[^\/]+)(?:\/page(?P<page>\d+)\.html)?\/?'
 
