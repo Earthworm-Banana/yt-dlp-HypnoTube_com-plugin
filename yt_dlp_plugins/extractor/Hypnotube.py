@@ -8,9 +8,9 @@ from yt_dlp.utils import (
 from yt_dlp.extractor import generic
 from urllib.parse import urlparse, urlunparse
 
-class HypnotubeVideoIE(InfoExtractor):
-    IE_NAME = 'HypnotubeCom:Video_Plugin'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
+
+class HypnotubeBaseIE(InfoExtractor):
+    _VALID_URL = "None"  # Workaround for error: TypeError: first argument must be string or compiled pattern
     _LOGIN_URL = 'https://hypnotube.com/login'
     _NETRC_MACHINE = 'hypnotube'
 
@@ -31,8 +31,8 @@ class HypnotubeVideoIE(InfoExtractor):
             note='Logging in',
             data=urlencode_postdata(login_form))
 
-        # Check if login failed
-        if re.search(r'(login_failed|incorrect username|incorrect password)', login_response, re.IGNORECASE):
+        # Check if login failed based on the notification error message in the HTML
+        if re.search(r'<div class="notification error">The login information you have provided was incorrect', login_response, re.IGNORECASE):
             raise ExtractorError('Login failed: incorrect username or password', expected=True)
 
         self.report_login()
@@ -43,9 +43,8 @@ class HypnotubeVideoIE(InfoExtractor):
     def _detect_logged_in_user(self, webpage):
         """Extract and display the logged-in user's name."""
         soup = BeautifulSoup(webpage, 'html.parser')
-
-        # Look for the element containing the username
-        user_name_elem = soup.find('span', class_='name_normal user-name')
+        # Check for both normal and premium username elements
+        user_name_elem = soup.find('span', class_='name_normal user-name') or soup.find('span', class_='name_premium user-name')
 
         if user_name_elem:
             logged_in_user = user_name_elem.get_text(strip=True)
@@ -53,18 +52,25 @@ class HypnotubeVideoIE(InfoExtractor):
         else:
             self.to_screen("Not logged in")
 
-    def _real_extract(self, url):
-        # Get login information
+
+    def _handle_login(self):
         username, password = self._get_login_info()
         if username and password:
             self._perform_login(username, password)
+
+
+class HypnotubeVideoIE(HypnotubeBaseIE):
+    IE_NAME = 'HypnotubeCom:Video_Plugin'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
+
+    def _real_extract(self, url):
+        self._handle_login()
 
         video_id_match = re.search(self._VALID_URL, url)
         video_id = video_id_match.group('id')
         webpage = self._download_webpage(url, video_id)
         soup = BeautifulSoup(webpage, 'html.parser')
 
-        # Extract video metadata
         uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
         title = self._extract_title(soup)
         description = self._extract_description(soup)
@@ -73,7 +79,7 @@ class HypnotubeVideoIE(InfoExtractor):
         thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
-        info = {
+        return {
             'id': video_id,
             'title': title,
             'uploader': uploader_name,
@@ -88,18 +94,14 @@ class HypnotubeVideoIE(InfoExtractor):
             'comments': comments
         }
 
-        return info
-
     def _extract_thumbnail(self, soup):
         thumbnail_elem = soup.find("meta", property="og:image")
         return thumbnail_elem['content'] if thumbnail_elem else None
 
     def _extract_uploader_info(self, soup):
-        uploader_id = None
-        uploader_url = None
-        uploader_name = None
-
         uploader_elem = soup.find("a", href=re.compile(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/'))
+        uploader_id, uploader_url, uploader_name = None, None, None
+
         if uploader_elem:
             uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
             uploader_id = uploader_id_match.group('id') if uploader_id_match else None
@@ -142,7 +144,6 @@ class HypnotubeVideoIE(InfoExtractor):
                 continue
             
             preference = -10 if format_label.lower() == 'sd' else 0
-
             formats.append({
                 'url': format_url,
                 'format_id': format_label,
@@ -210,32 +211,6 @@ class HypnotubeVideoIE(InfoExtractor):
             })
         return comments
 
-    def _extract_user_videos(self, user_id, user_url):
-        webpage = self._download_webpage(user_url, user_id)
-        soup = BeautifulSoup(webpage, 'html.parser')
-
-        video_links = soup.find_all('a', href=re.compile(self._VALID_URL))
-
-        entries = []
-        for link in video_links:
-            video_url = link['href']
-            entries.append(self.url_result(video_url, 'HypnotubeVideoIE'))
-
-        # Check for pagination
-        pagination_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/uploads-by-user/.*?/page(\d+)\.html'))
-        if pagination_links:
-            last_page = int(pagination_links[-1]['href'].split('/')[-1].split('.')[0][4:])
-            page_urls = [re.sub(r'(page)\d+', fr'\g<1>{page}', user_url) for page in range(2, last_page + 1)]
-            for page_url in page_urls:
-                page_webpage = self._download_webpage(page_url, user_id)
-                page_soup = BeautifulSoup(page_webpage, 'html.parser')
-                page_video_links = page_soup.find_all('a', href=re.compile(self._VALID_URL))
-                for link in page_video_links:
-                    video_url = link['href']
-                    entries.append(self.url_result(video_url, 'HypnotubeVideoIE'))
-
-        return self.playlist_result(entries, user_id)
-
 class HypnotubePlaylistIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:Playlist'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/(?P<slug>[^/]+)(?:/page(?P<page>\d+)\.html)?/?'
@@ -287,9 +262,20 @@ class HypnotubePlaylistIE(InfoExtractor):
                 video_id = video_id_match.group(1)
                 yield self.url_result(video_url_without_params, ie_key=HypnotubeVideoIE.ie_key())
 
-class HypnotubeFavoritesIE(InfoExtractor):
+class HypnotubeFavoritesIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Favorites'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/favorites/(?:page(?P<page_num>\d+))?'
+
+    def _get_user_info(self):
+        profile_url = 'https://hypnotube.com/my-profile'
+        profile_page = self._download_webpage(profile_url, None, note='Downloading user profile page')
+        soup = BeautifulSoup(profile_page, 'html.parser')
+
+        # Extract the logged-in username
+        username_elem = soup.find('li', class_='profile-field-username')
+        logged_in_username = username_elem.find('span', class_='sub-desc').get_text(strip=True) if username_elem else 'Unknown'
+
+        return logged_in_username
 
     def _entries(self, user_id):
         page_num = 1
@@ -302,12 +288,7 @@ class HypnotubeFavoritesIE(InfoExtractor):
             video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
             if not video_links:
                 if video_count == 0:
-                    self.report_warning(
-                        "No videos found on the favorites page. This could be due to several reasons: "
-                        "1. You may need to log in using a valid cookie file. "
-                        "2. Your cookie may have expired. "
-                        "3. There may genuinely be no videos in your favorites. "
-                        "4. There could be a bug with the page or extractor.")
+                    self.report_warning("No videos found on the favorites page. Possible login or cookie issues.")
                 break
 
             for link in video_links:
@@ -318,13 +299,15 @@ class HypnotubeFavoritesIE(InfoExtractor):
             page_num += 1
 
     def _real_extract(self, url):
+        self._handle_login()
+
         mobj = re.match(self._VALID_URL, url)
-        user_id = 'favorite'  # Not easy to get specific a user favorite, so use placeholder for now.
-        if not mobj:
-            raise ExtractorError('Could not extract user or page number from URL', expected=True)
-        
+        user_id = 'favorite'
+        logged_in_username = self._get_user_info()  # Get logged-in username from the profile page
         entries = self._entries(user_id)
-        return self.playlist_result(entries, playlist_id=user_id, playlist_title="User Favorites")
+        return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
+
+
 
 class HypnotubeUserIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:User_Plugin'
