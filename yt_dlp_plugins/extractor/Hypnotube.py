@@ -1,23 +1,70 @@
-from yt_dlp.extractor.common import InfoExtractor
-from yt_dlp.compat import compat_str
-from yt_dlp.extractor import generic
-from bs4 import BeautifulSoup
 import re
+from bs4 import BeautifulSoup
+from yt_dlp.extractor.common import InfoExtractor
+from yt_dlp.utils import (
+    ExtractorError,
+    urlencode_postdata
+)
+from yt_dlp.extractor import generic
 from urllib.parse import urlparse, urlunparse
 
 class HypnotubeVideoIE(InfoExtractor):
     IE_NAME = 'HypnotubeCom:Video_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
+    _LOGIN_URL = 'https://hypnotube.com/login'
+    _NETRC_MACHINE = 'hypnotube'
+
+    def _perform_login(self, username, password):
+        login_page, url_handle = self._download_webpage_handle(self._LOGIN_URL, None, 'Downloading login page')
+
+        # Extract the hidden form inputs (CSRF token or other hidden fields)
+        login_form = self._hidden_inputs(login_page)
+        login_form.update({
+            'ahd_username': username,
+            'ahd_password': password,
+            'Submit': ''
+        })
+
+        # Send the login form with the credentials
+        login_response = self._download_webpage(
+            self._LOGIN_URL, None,
+            note='Logging in',
+            data=urlencode_postdata(login_form))
+
+        # Check if login failed
+        if re.search(r'(login_failed|incorrect username|incorrect password)', login_response, re.IGNORECASE):
+            raise ExtractorError('Login failed: incorrect username or password', expected=True)
+
+        self.report_login()
+
+        # Now check if the user is logged in and extract the username
+        self._detect_logged_in_user(login_response)
+
+    def _detect_logged_in_user(self, webpage):
+        """Extract and display the logged-in user's name."""
+        soup = BeautifulSoup(webpage, 'html.parser')
+
+        # Look for the element containing the username
+        user_name_elem = soup.find('span', class_='name_normal user-name')
+
+        if user_name_elem:
+            logged_in_user = user_name_elem.get_text(strip=True)
+            self.to_screen(f"Logged in as: {logged_in_user}")
+        else:
+            self.to_screen("Not logged in")
 
     def _real_extract(self, url):
+        # Get login information
+        username, password = self._get_login_info()
+        if username and password:
+            self._perform_login(username, password)
+
         video_id_match = re.search(self._VALID_URL, url)
         video_id = video_id_match.group('id')
-        return self._extract_video_info(video_id, url)
-
-    def _extract_video_info(self, video_id, url):
         webpage = self._download_webpage(url, video_id)
         soup = BeautifulSoup(webpage, 'html.parser')
 
+        # Extract video metadata
         uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
         title = self._extract_title(soup)
         description = self._extract_description(soup)
@@ -117,7 +164,6 @@ class HypnotubeVideoIE(InfoExtractor):
             raise ValueError(f"Could not extract video formats, might be private: {url}")
         
         return formats
-
 
     def _extract_comments(self, video_id):
         comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
