@@ -129,7 +129,7 @@ class HypnotubeBaseIE(InfoExtractor):
 
 class HypnotubeVideoIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Video_Plugin'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/[^-]*-(?P<id>\d+)\.html'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/(?:.*-)?(?P<id>\d+)\.html'
 
     def _real_extract(self, url):
         self._handle_login()
@@ -167,7 +167,6 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
         video_elem = soup.find('video', id='thisPlayer')
 
         if not video_elem:
-            # Check if there is an overlay message, typically for restrictions
             notice_elem = soup.find(id='notice_overl') or soup.find(id='playerOverlay')
             if notice_elem:
                 notice_text = notice_elem.get_text(strip=True)
@@ -194,6 +193,7 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
             raise ExtractorError(f"Could not extract video formats, the video might be private or restricted: {url}")
         
         return formats
+
 
 
 
