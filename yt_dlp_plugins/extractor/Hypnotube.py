@@ -65,28 +65,43 @@ class HypnotubeBaseIE(InfoExtractor):
         comments = []
 
         for comment_block in soup.find_all('div', class_='block'):
+            # Extract author name
             author = comment_block.find('strong').get_text(strip=True)
 
+            # Extract author link and associated details
             author_link = comment_block.find_previous_sibling('a')
             author_thumbnail = author_link.find('img')['src'] if author_link and author_link.find('img') else None
-            author_url = author_link['href'] if author_link else None
+            author_url = author_link['href'] if author_link and 'href' in author_link.attrs else None
             author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url) if author_url else None
             author_id = author_id_match.group(2) if author_id_match else None
 
-            time_text_block = comment_block.find('a').find_next_sibling(string=True)
-            _time_text = time_text_block.strip() if time_text_block else None
+            # Determine if the user is VIP or normal based on the class of the <a> tag
+            user_status = 'VIP' if author_link and 'name_premium' in author_link.get('class', []) else 'normal'
 
+            # Extract comment time text
+            time_element = comment_block.find('a')
+            _time_text = None
+            if time_element:
+                time_text_block = time_element.find_next_sibling(string=True)
+                _time_text = time_text_block.strip() if time_text_block else None
+
+            # Extract comment text
             text = comment_block.find('p').get_text(strip=True)
+
+            # Append all data to the comments list
             comments.append({
                 'author': author,
                 'author_id': author_id,
                 'author_thumbnail': author_thumbnail,
                 'author_url': author_url,
+                'user_status': user_status,
                 '_time_text': _time_text,
                 'text': text,
             })
 
         return comments
+
+
 
     def _extract_video_stats(self, soup):
         stats = soup.find("div", class_="stats-container").find_all("li")
