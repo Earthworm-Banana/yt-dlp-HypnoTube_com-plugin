@@ -358,31 +358,34 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
 
     def _entries(self, user_id):
         page_num = 1
-        video_count = 0
+        item_count = 0
         while True:
             favorites_url = f'https://hypnotube.com/favorites/page{page_num}.html'
             webpage = self._download_webpage(favorites_url, user_id, note=f'Downloading favorites page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
-            # Extract video links
-            video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
-            # Extract gallery links
-            gallery_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'))
+            # Extract video and gallery links separately
+            video_links = soup.find_all('a', href=re.compile(HypnotubeVideoIE._VALID_URL))
+            gallery_links = soup.find_all('a', href=re.compile(HypnotubeGalleryIE._VALID_URL))
 
-            if not video_links and not gallery_links:
-                if video_count == 0:
+            # Combine video and gallery links into a single list while preserving order
+            combined_links = []
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                if re.match(HypnotubeVideoIE._VALID_URL, href):
+                    combined_links.append((href, HypnotubeVideoIE.ie_key()))
+                elif re.match(HypnotubeGalleryIE._VALID_URL, href):
+                    combined_links.append((href, HypnotubeGalleryIE.ie_key()))
+
+            if not combined_links:
+                if item_count == 0:
                     self.report_warning("No videos or galleries found on the favorites page. Possible login or cookie issues.")
                 break
 
-            for link in gallery_links:
-                video_count += 1
-                gallery_url = link['href']
-                yield self.url_result(gallery_url, ie=HypnotubeGalleryIE.ie_key())
-
-            for link in video_links:
-                video_count += 1
-                video_url = link['href']
-                yield self.url_result(video_url, ie=HypnotubeVideoIE.ie_key())
+            # Process combined links in the order they appeared
+            for href, ie_key in combined_links:
+                item_count += 1
+                yield self.url_result(href, ie=ie_key)
 
             page_num += 1
 
@@ -394,6 +397,9 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
         logged_in_username = self._get_user_info()  # Get logged-in username from the profile page
         entries = self._entries(user_id)
         return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
+
+
+
 
 
 class HypnotubeUserIE(HypnotubeBaseIE):
@@ -412,10 +418,11 @@ class HypnotubeUserIE(HypnotubeBaseIE):
             webpage = self._download_webpage(user_url, user_id, note=f'Downloading user page {page_num} ({content_type})')
             soup = BeautifulSoup(webpage, 'html.parser')
 
+            # Use the regex from HypnotubeGalleryIE for galleries and HypnotubeVideoIE for videos
             if content_type == '?photos=1':
-                item_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'))
+                item_links = soup.find_all('a', href=re.compile(HypnotubeGalleryIE._VALID_URL))
             else:
-                item_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
+                item_links = soup.find_all('a', href=re.compile(HypnotubeVideoIE._VALID_URL))
 
             if not item_links:
                 if item_count == 0:
