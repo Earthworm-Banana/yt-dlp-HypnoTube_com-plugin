@@ -146,41 +146,38 @@ class HypnotubeBaseIE(InfoExtractor):
         thumbnail_elem = soup.find("meta", property="og:image")
         return thumbnail_elem['content'] if thumbnail_elem else None
 
-
 class HypnotubeGalleryIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Gallery'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/galleries/(?:.*-)?(?P<id>\d+)\.html'
 
     def _real_extract(self, url):
         gallery_id = self._match_id(url)
 
-        # Modify the URL to include the 'image' parameter
-        if '?image=' in url:
-            url = re.sub(r'\?image=\d+', '?image=1', url)
-        else:
-            url = f'{url}?image=1'
+        # Ensure the URL does not have any image parameter for consistent low-res extraction
+        base_url = re.sub(r'\?image=\d+', '', url)
 
-        webpage = self._download_webpage(url, gallery_id)
-        soup = BeautifulSoup(webpage, 'html.parser')
+        # URL to fetch high-resolution images
+        high_res_url = f'{base_url}?image=1'
 
-        # Handle access restriction errors
-        access_error = soup.find('div', class_='notification alert')
-        if access_error:
-            error_message = access_error.get_text(strip=True).replace("Click here to view their profile", "").strip()
-            raise ExtractorError(f'Access restricted: {error_message}', expected=True)
+        # Download high-resolution webpage and extract image URLs
+        high_res_webpage = self._download_webpage(high_res_url, gallery_id)
+        high_res_image_urls = re.findall(r"images\.push\('(https?://[^\']+)'", high_res_webpage)
 
-        # Extract common metadata using base class methods
+        # Download low-resolution webpage and extract thumbnail URLs
+        low_res_webpage = self._download_webpage(base_url, gallery_id)
+        soup = BeautifulSoup(low_res_webpage, 'html.parser')
+
+        low_res_images = []
+        for img_tag in soup.select('.gallery-item-col a img'):
+            low_res_images.append(img_tag['src'])
+
+        # Extract metadata
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
-
-        # Use the base method to extract video stats (view count and upload date)
         duration, view_count, upload_date = self._extract_video_stats(soup)
 
-        # Extract the image URLs from the JavaScript 'images.push'
-        image_urls = re.findall(r"images\.push\('(https?://[^\']+)'", webpage)
-
-        # Shared metadata for both the playlist and individual entries
+        # Shared metadata
         common_metadata = {
             'media_type': "Gallery",
             'HYPNOTUBE_gallery': "Gallery",
@@ -193,18 +190,29 @@ class HypnotubeGalleryIE(HypnotubeBaseIE):
             'view_count': view_count,
         }
 
-        # Build playlist entries for each image
-        entries = [
-            {
+        # Build playlist entries with both high and low resolution as formats
+        entries = []
+        for idx, (low_res_img, high_res_img) in enumerate(zip(low_res_images, high_res_image_urls), 1):
+            formats = [
+                {
+                    'format_id': 'high',
+                    'url': high_res_img,
+                    'ext': high_res_img.split('.')[-1].split('?')[0],
+                    'preference': 0,  # Higher preference for high-res
+                },
+                {
+                    'format_id': 'thumbnail',
+                    'url': low_res_img,
+                    'ext': low_res_img.split('.')[-1].split('?')[0],
+                    'preference': -10,  # Lower preference for low-res
+                },
+            ]
+            entries.append({
                 'id': f'{gallery_id}_{idx}',
                 'title': title,
-                'url': img_url,
-                'format_id': img_url.split('.')[-1].split('?')[0],
-                'ext': img_url.split('.')[-1].split('?')[0],
-                **common_metadata,  # Include common metadata in each entry
-            }
-            for idx, img_url in enumerate(image_urls, 1)
-        ]
+                'formats': formats,
+                **common_metadata,
+            })
 
         # Extract comments using the base class method
         comments = self._extract_comments(gallery_id)
@@ -217,7 +225,7 @@ class HypnotubeGalleryIE(HypnotubeBaseIE):
             'description': description,
             'comments': comments,
             'entries': entries,
-            **common_metadata,  # Include common metadata at the playlist level
+            **common_metadata,
         }
 
 
@@ -399,9 +407,6 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
         return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
 
 
-
-
-
 class HypnotubeUserIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:User_Plugin'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?(?:\?photos=1)?)'
@@ -466,25 +471,34 @@ class HypnotubeChannelsIE(HypnotubeBaseIE):
 
     def _entries(self, channel_id, channel_name):
         page_num = 1
-        video_count = 0
+        item_count = 0
         while True:
             channel_url = f'https://hypnotube.com/channels/{channel_id}/{channel_name}/page{page_num}.html'
             webpage = self._download_webpage(channel_url, channel_id, note=f'Downloading channel page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
-            video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
+            # Extract video and gallery links separately
+            video_links = soup.find_all('a', href=re.compile(HypnotubeVideoIE._VALID_URL))
+            gallery_links = soup.find_all('a', href=re.compile(HypnotubeGalleryIE._VALID_URL))
 
-            if not video_links:
-                if video_count == 0:
-                    pass
-                else:
-                    pass
+            # Combine video and gallery links into a single list while preserving order
+            combined_links = []
+            for link in soup.find_all('a', href=True):
+                href = link['href']
+                if re.match(HypnotubeVideoIE._VALID_URL, href):
+                    combined_links.append((href, HypnotubeVideoIE.ie_key()))
+                elif re.match(HypnotubeGalleryIE._VALID_URL, href):
+                    combined_links.append((href, HypnotubeGalleryIE.ie_key()))
+
+            if not combined_links:
+                if item_count == 0:
+                    self.report_warning("No videos or galleries found on the channel page.")
                 break
 
-            for link in video_links:
-                video_count += 1
-                video_url = link['href']
-                yield self.url_result(video_url, ie=HypnotubeVideoIE.ie_key())
+            # Process combined links in the order they appeared
+            for href, ie_key in combined_links:
+                item_count += 1
+                yield self.url_result(href, ie=ie_key)
 
             page_num += 1
 
@@ -493,4 +507,5 @@ class HypnotubeChannelsIE(HypnotubeBaseIE):
         channel_id = mobj.group('id')
         channel_name = mobj.group('name')
         entries = self._entries(channel_id, channel_name)
-        return self.playlist_result(entries)
+        return self.playlist_result(entries, playlist_id=channel_id, playlist_title=f"Channel: {channel_name}")
+
