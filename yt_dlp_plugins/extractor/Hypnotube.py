@@ -15,50 +15,121 @@ class HypnotubeBaseIE(InfoExtractor):
     _NETRC_MACHINE = 'hypnotube'
 
     def _perform_login(self, username, password):
-        # Manually construct the login form without downloading the login page
         login_form = {
             'ahd_username': username,
             'ahd_password': password,
             'Submit': ''
         }
 
-        # Send the login form with the credentials
         login_response = self._download_webpage(
             self._LOGIN_URL, None,
             note='Logging in',
             data=urlencode_postdata(login_form))
 
-        # Check if login failed based on the notification error message in the HTML
         if re.search(r'<div class="notification error">The login information you have provided was incorrect', login_response, re.IGNORECASE):
             raise ExtractorError('Login failed: incorrect username or password', expected=True)
 
-        # Now check if the user is logged in and extract the username
         self._detect_logged_in_user(login_response)
 
-
     def _detect_logged_in_user(self, webpage):
-        """Extract and display the logged-in user's name."""
         soup = BeautifulSoup(webpage, 'html.parser')
-        # Check for both normal and premium username elements
-        user_name_elem = soup.find('span', class_='name_normal user-name') or soup.find('span', class_='name_premium user-name')
+        user_name_elem = soup.find('span', class_='name_normal user-name') or soup.find('span', 'name_premium user-name')
 
         if user_name_elem:
             logged_in_user = user_name_elem.get_text(strip=True)
             self.to_screen(f"Logged in as: {logged_in_user}")
         else:
             raise ExtractorError('Login failed', expected=False)
-            
-
 
     def _handle_login(self):
         username, password = self._get_login_info()
         if username and password:
             self._perform_login(username, password)
 
+    def _extract_uploader_info(self, soup):
+        uploader_elem = soup.find("a", href=re.compile(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/'))
+        uploader_id, uploader_url, uploader_name = None, None, None
+
+        if uploader_elem:
+            uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
+            uploader_id = uploader_id_match.group('id') if uploader_id_match else None
+            uploader_url = uploader_elem['href']
+            uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip()
+
+        return uploader_id, uploader_name, uploader_url
+
+    def _extract_comments(self, item_id):
+        comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={item_id}'
+        comments_webpage = self._download_webpage(comments_url, item_id, note='Downloading comments page')
+        soup = BeautifulSoup(comments_webpage, 'html.parser')
+        comments = []
+
+        for comment_block in soup.find_all('div', class_='block'):
+            author = comment_block.find('strong').get_text(strip=True)
+
+            author_link = comment_block.find_previous_sibling('a')
+            author_thumbnail = author_link.find('img')['src'] if author_link and author_link.find('img') else None
+            author_url = author_link['href'] if author_link else None
+            author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url) if author_url else None
+            author_id = author_id_match.group(2) if author_id_match else None
+
+            time_text_block = comment_block.find('a').find_next_sibling(string=True)
+            _time_text = time_text_block.strip() if time_text_block else None
+
+            text = comment_block.find('p').get_text(strip=True)
+            comments.append({
+                'author': author,
+                'author_id': author_id,
+                'author_thumbnail': author_thumbnail,
+                'author_url': author_url,
+                '_time_text': _time_text,
+                'text': text,
+            })
+
+        return comments
+
+    def _extract_video_stats(self, soup):
+        stats = soup.find("div", class_="stats-container").find_all("li")
+        
+        # Extract duration safely
+        duration_str = stats[0].find("span", class_="sub-label").get_text(strip=True) if len(stats) > 0 else None
+        duration = None
+        if duration_str:
+            duration_parts = duration_str.split(':')
+            if len(duration_parts) == 3:  # HH:MM:SS format
+                duration = int(duration_parts[0]) * 3600 + int(duration_parts[1]) * 60 + int(duration_parts[2])
+            elif len(duration_parts) == 2:  # MM:SS format
+                duration = int(duration_parts[0]) * 60 + int(duration_parts[1])
+        
+        # Extract view count safely
+        view_count = int(stats[1].find("span", class_="sub-label").get_text(strip=True)) if len(stats) > 1 else None
+        
+        # Extract upload date safely
+        upload_date = stats[2].find("span", class_="sub-label").get_text(strip=True).replace("-", "").replace(":", "").replace(" ", "")[:8] if len(stats) > 2 else None
+
+        return duration, view_count, upload_date
+
+
+    def _extract_title(self, soup):
+        title_elem = soup.find('h1')
+        if title_elem and title_elem.get_text(strip=True):
+            return title_elem.get_text(strip=True)
+        # Fallback to use a default title if h1 is empty or missing
+        return 'Untitled'
+
+
+    def _extract_description(self, soup):
+        description_elem = soup.find('div', class_="main-description")
+        return description_elem.get_text(strip=True) if description_elem else None
+
+    def _extract_thumbnail(self, soup):
+        thumbnail_elem = soup.find("meta", property="og:image")
+        return thumbnail_elem['content'] if thumbnail_elem else None
+
 
 class HypnotubeVideoIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Video_Plugin'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/video/[^-]*-(?P<id>\d+)\.html'
 
     def _real_extract(self, url):
         self._handle_login()
@@ -91,42 +162,6 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
             'comments': comments
         }
 
-    def _extract_thumbnail(self, soup):
-        thumbnail_elem = soup.find("meta", property="og:image")
-        return thumbnail_elem['content'] if thumbnail_elem else None
-
-    def _extract_uploader_info(self, soup):
-        uploader_elem = soup.find("a", href=re.compile(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/'))
-        uploader_id, uploader_url, uploader_name = None, None, None
-
-        if uploader_elem:
-            uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
-            uploader_id = uploader_id_match.group('id') if uploader_id_match else None
-            uploader_url = uploader_elem['href']
-            uploader_name = uploader_elem.get_text(strip=True).replace("Submitted by", "").strip()
-
-        return uploader_id, uploader_name, uploader_url
-
-    def _extract_title(self, soup):
-        title_elem = soup.find("h1")
-        return title_elem.get_text(strip=True) if title_elem else None
-
-    def _extract_description(self, soup):
-        description_elem = soup.find("div", class_="main-description")
-        return description_elem.get_text(strip=True) if description_elem else None
-
-    def _extract_video_stats(self, soup):
-        stats = soup.find("div", class_="stats-container").find_all("li")
-        duration_str = stats[0].find("span", class_="sub-label").get_text(strip=True)
-        duration_parts = duration_str.split(':')
-        if len(duration_parts) == 3:  # Check if duration includes hours
-            duration = int(duration_parts[0]) * 3600 + int(duration_parts[1]) * 60 + int(duration_parts[2])
-        else:
-            duration = int(duration_parts[0]) * 60 + int(duration_parts[1])
-        view_count = int(stats[1].find("span", class_="sub-label").get_text(strip=True))
-        upload_date = stats[2].find("span", class_="sub-label").get_text(strip=True).replace("-", "").replace(":", "").replace(" ", "")[:8]
-        return duration, view_count, upload_date
-
     def _extract_formats(self, webpage, url):
         soup = BeautifulSoup(webpage, 'html.parser')
         video_elem = soup.find('video', id='thisPlayer')
@@ -135,18 +170,9 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
             # Check if there is an overlay message, typically for restrictions
             notice_elem = soup.find(id='notice_overl') or soup.find(id='playerOverlay')
             if notice_elem:
-                # Find the first <br> tag and remove it along with everything after
-                br_tag = notice_elem.find('br')
-                if br_tag:
-                    for sibling in br_tag.find_all_next():
-                        sibling.decompose()
-                    br_tag.decompose()  # Remove the <br> tag itself
-
                 notice_text = notice_elem.get_text(strip=True)
                 raise ExtractorError(f"Video cannot be accessed, HypnoTube says: {notice_text}", expected=True)
             raise ExtractorError(f"Could not find video element on the page: {url}")
-
-
 
         formats = []
         for source in video_elem.find_all('source'):
@@ -163,66 +189,13 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
                 'preference': preference,
                 'http_headers': {'Referer': 'https://hypnotube.com/index.php'}
             })
-
-        if not formats:
-            try:
-                self.report_warning('No formats found, attempting fallback extraction.')
-                generic_extractor = generic.GenericIE()
-                generic_extractor.set_downloader(self._downloader)
-                formats = generic_extractor.extract(url)['formats']
-            except Exception as e:
-                raise ExtractorError(f"Fallback extraction failed. Error: {str(e)}", cause=e)
-
+        
         if not formats:
             raise ExtractorError(f"Could not extract video formats, the video might be private or restricted: {url}")
-
+        
         return formats
 
 
-    def _extract_comments(self, video_id):
-        comments_url = f'https://hypnotube.com/templates/hypnotube/template.ajax_comments.php?id={video_id}'
-        comments_webpage = self._download_webpage(comments_url, video_id, note='Downloading comments page')
-        soup = BeautifulSoup(comments_webpage, 'html.parser')
-        comments = []
-
-        for comment_block in soup.find_all('div', class_='block'):
-            author = comment_block.find('strong').get_text(strip=True)
-
-            author_link = comment_block.find_previous_sibling('a')
-            if author_link is not None:
-                author_thumbnail = author_link.find('img')
-                if author_thumbnail is not None:
-                    author_thumbnail = author_thumbnail['src']
-                else:
-                    author_thumbnail = None
-                author_url = author_link.get('href')
-                author_id = None
-
-                if author_url:
-                    author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url)
-                    if author_id_match:
-                        author_id = author_id_match.group(2)
-
-            else:
-                author_thumbnail = author_url = author_id = None
-
-            a_tag = comment_block.find('a')
-            if a_tag is not None:
-                time_text_block = a_tag.find_next_sibling(string=True)
-                _time_text = time_text_block.strip() if time_text_block else None
-            else:
-                _time_text = None
-
-            text = comment_block.find('p').get_text(strip=True)
-            comments.append({
-                'author': author,
-                'author_id': author_id,
-                'author_thumbnail': author_thumbnail,
-                'author_url': author_url,
-                '_time_text': _time_text,
-                'text': text,
-            })
-        return comments
 
 class HypnotubePlaylistIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Playlist'
@@ -324,37 +297,60 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
 
 class HypnotubeUserIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:User_Plugin'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?)'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/(?:user/.+-(?P<id>\d+)|uploads-by-user/(?P<id1>\d+)(?:/page\d+\.html)?(?:\?photos=1)?)'
 
-    def _entries(self, user_id):
+    def _entries(self, user_id, content_type):
         page_num = 1
-        video_count = 0
+        item_count = 0
         while True:
-            user_url = f'https://hypnotube.com/uploads-by-user/{user_id}/page{page_num}.html'
-            webpage = self._download_webpage(user_url, user_id, note=f'Downloading user page {page_num}')
+            if content_type == '?photos=1':
+                user_url = f'https://hypnotube.com/uploads-by-user/{user_id}/page{page_num}.html{content_type}'
+            else:
+                user_url = f'https://hypnotube.com/uploads-by-user/{user_id}/page{page_num}.html'
+
+            webpage = self._download_webpage(user_url, user_id, note=f'Downloading user page {page_num} ({content_type})')
             soup = BeautifulSoup(webpage, 'html.parser')
 
-            video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
+            if content_type == '?photos=1':
+                item_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'))
+            else:
+                item_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
 
-            if not video_links:
-                if video_count == 0:
-                    pass
-                else:
+            if not item_links:
+                if item_count == 0:
                     pass
                 break
 
-            for link in video_links:
-                video_count += 1
-                video_url = link['href']
-                yield self.url_result(video_url, ie=HypnotubeVideoIE.ie_key())
+            for link in item_links:
+                item_count += 1
+                item_url = link['href']
+                ie_key = HypnotubeGalleryIE.ie_key() if content_type == '?photos=1' else HypnotubeVideoIE.ie_key()
+                yield self.url_result(item_url, ie_key=ie_key)
 
             page_num += 1
 
     def _real_extract(self, url):
         mobj = re.match(self._VALID_URL, url)
         user_id = mobj.group('id') or mobj.group('id1')
-        entries = self._entries(user_id)
-        return self.playlist_result(entries, user_id)
+
+        if '?photos=1' in url:
+            entries = self._entries(user_id, content_type='?photos=1')
+            return self.playlist_result(entries, user_id)
+        
+        elif 'uploads-by-user' in url:
+            entries = self._entries(user_id, content_type='')
+            return self.playlist_result(entries, user_id)
+
+        else:
+            # First extract photos
+            photo_entries = list(self._entries(user_id, content_type='?photos=1'))
+            # Then extract videos
+            video_entries = list(self._entries(user_id, content_type=''))
+
+            # Combine both photo and video entries
+            entries = photo_entries + video_entries
+            return self.playlist_result(entries, user_id)
+
 
 class HypnotubeChannelsIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Channels_Plugin'
@@ -390,3 +386,78 @@ class HypnotubeChannelsIE(HypnotubeBaseIE):
         channel_name = mobj.group('name')
         entries = self._entries(channel_id, channel_name)
         return self.playlist_result(entries)
+
+
+
+class HypnotubeGalleryIE(HypnotubeBaseIE):
+    IE_NAME = 'HypnotubeCom:Gallery'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'
+
+    def _real_extract(self, url):
+        gallery_id = self._match_id(url)
+
+        # Modify the URL to include the 'image' parameter
+        if '?image=' in url:
+            url = re.sub(r'\?image=\d+', '?image=1', url)
+        else:
+            url = f'{url}?image=1'
+
+        webpage = self._download_webpage(url, gallery_id)
+        soup = BeautifulSoup(webpage, 'html.parser')
+
+        # Handle access restriction errors
+        access_error = soup.find('div', class_='notification alert')
+        if access_error:
+            error_message = access_error.get_text(strip=True).replace("Click here to view their profile", "").strip()
+            raise ExtractorError(f'Access restricted: {error_message}', expected=True)
+
+        # Extract common metadata using base class methods
+        title = self._extract_title(soup)
+        description = self._extract_description(soup)
+        uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
+
+        # Use the base method to extract video stats (view count and upload date)
+        duration, view_count, upload_date = self._extract_video_stats(soup)
+
+        # Extract the image URLs from the JavaScript 'images.push'
+        image_urls = re.findall(r"images\.push\('(https?://[^\']+)'", webpage)
+
+        # Shared metadata for both the playlist and individual entries
+        common_metadata = {
+            'media_type': "Gallery",
+            'HYPNOTUBE_gallery': "Gallery",
+            'HYPNOTUBE_gallery_id': gallery_id,
+            'HYPNOTUBE_gallery_title': title,
+            'uploader': uploader_name,
+            'uploader_id': uploader_id,
+            'uploader_url': uploader_url,
+            'upload_date': upload_date,
+            'view_count': view_count,
+        }
+
+        # Build playlist entries for each image
+        entries = [
+            {
+                'id': f'{gallery_id}_{idx}',
+                'title': title,
+                'url': img_url,
+                'format_id': img_url.split('.')[-1].split('?')[0],
+                'ext': img_url.split('.')[-1].split('?')[0],
+                **common_metadata,  # Include common metadata in each entry
+            }
+            for idx, img_url in enumerate(image_urls, 1)
+        ]
+
+        # Extract comments using the base class method
+        comments = self._extract_comments(gallery_id)
+
+        # Return the images as a playlist with additional metadata
+        return {
+            '_type': 'playlist',
+            'id': gallery_id,
+            'title': title,
+            'description': description,
+            'comments': comments,
+            'entries': entries,
+            **common_metadata,  # Include common metadata at the playlist level
+        }
