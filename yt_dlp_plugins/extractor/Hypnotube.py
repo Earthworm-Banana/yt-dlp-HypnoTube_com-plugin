@@ -48,7 +48,7 @@ class HypnotubeBaseIE(InfoExtractor):
 
     def _extract_uploader_info(self, soup):
         uploader_elem = soup.find("a", href=re.compile(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/'))
-        uploader_id, uploader_url, uploader_name = None, None, None
+        uploader_id, uploader_url, uploader_name = None, None, "Anonymous"
 
         if uploader_elem:
             uploader_id_match = re.search(r'https?://hypnotube\.com/user/.*-(?P<id>\d+)/', uploader_elem['href'])
@@ -293,11 +293,20 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
             webpage = self._download_webpage(favorites_url, user_id, note=f'Downloading favorites page {page_num}')
             soup = BeautifulSoup(webpage, 'html.parser')
 
+            # Extract video links
             video_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/video/.+-(?P<id>\d+)\.html'))
-            if not video_links:
+            # Extract gallery links
+            gallery_links = soup.find_all('a', href=re.compile(r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'))
+
+            if not video_links and not gallery_links:
                 if video_count == 0:
-                    self.report_warning("No videos found on the favorites page. Possible login or cookie issues.")
+                    self.report_warning("No videos or galleries found on the favorites page. Possible login or cookie issues.")
                 break
+
+            for link in gallery_links:
+                video_count += 1
+                gallery_url = link['href']
+                yield self.url_result(gallery_url, ie=HypnotubeGalleryIE.ie_key())
 
             for link in video_links:
                 video_count += 1
@@ -313,6 +322,8 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
         user_id = 'favorite'
         logged_in_username = self._get_user_info()  # Get logged-in username from the profile page
         entries = self._entries(user_id)
+        return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
+
         return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
 
 
