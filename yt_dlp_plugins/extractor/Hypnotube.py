@@ -108,8 +108,6 @@ class HypnotubeBaseIE(InfoExtractor):
         return comments
 
 
-
-
     def _extract_video_stats(self, soup):
         stats = soup.find("div", class_="stats-container").find_all("li")
         
@@ -147,6 +145,80 @@ class HypnotubeBaseIE(InfoExtractor):
     def _extract_thumbnail(self, soup):
         thumbnail_elem = soup.find("meta", property="og:image")
         return thumbnail_elem['content'] if thumbnail_elem else None
+
+
+class HypnotubeGalleryIE(HypnotubeBaseIE):
+    IE_NAME = 'HypnotubeCom:Gallery'
+    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'
+
+    def _real_extract(self, url):
+        gallery_id = self._match_id(url)
+
+        # Modify the URL to include the 'image' parameter
+        if '?image=' in url:
+            url = re.sub(r'\?image=\d+', '?image=1', url)
+        else:
+            url = f'{url}?image=1'
+
+        webpage = self._download_webpage(url, gallery_id)
+        soup = BeautifulSoup(webpage, 'html.parser')
+
+        # Handle access restriction errors
+        access_error = soup.find('div', class_='notification alert')
+        if access_error:
+            error_message = access_error.get_text(strip=True).replace("Click here to view their profile", "").strip()
+            raise ExtractorError(f'Access restricted: {error_message}', expected=True)
+
+        # Extract common metadata using base class methods
+        title = self._extract_title(soup)
+        description = self._extract_description(soup)
+        uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
+
+        # Use the base method to extract video stats (view count and upload date)
+        duration, view_count, upload_date = self._extract_video_stats(soup)
+
+        # Extract the image URLs from the JavaScript 'images.push'
+        image_urls = re.findall(r"images\.push\('(https?://[^\']+)'", webpage)
+
+        # Shared metadata for both the playlist and individual entries
+        common_metadata = {
+            'media_type': "Gallery",
+            'HYPNOTUBE_gallery': "Gallery",
+            'HYPNOTUBE_gallery_id': gallery_id,
+            'HYPNOTUBE_gallery_title': title,
+            'uploader': uploader_name,
+            'uploader_id': uploader_id,
+            'uploader_url': uploader_url,
+            'upload_date': upload_date,
+            'view_count': view_count,
+        }
+
+        # Build playlist entries for each image
+        entries = [
+            {
+                'id': f'{gallery_id}_{idx}',
+                'title': title,
+                'url': img_url,
+                'format_id': img_url.split('.')[-1].split('?')[0],
+                'ext': img_url.split('.')[-1].split('?')[0],
+                **common_metadata,  # Include common metadata in each entry
+            }
+            for idx, img_url in enumerate(image_urls, 1)
+        ]
+
+        # Extract comments using the base class method
+        comments = self._extract_comments(gallery_id)
+
+        # Return the images as a playlist with additional metadata
+        return {
+            '_type': 'playlist',
+            'id': gallery_id,
+            'title': title,
+            'description': description,
+            'comments': comments,
+            'entries': entries,
+            **common_metadata,  # Include common metadata at the playlist level
+        }
 
 
 class HypnotubeVideoIE(HypnotubeBaseIE):
@@ -217,8 +289,6 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
         return formats
 
 
-
-
 class HypnotubePlaylistIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Playlist'
     _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/playlist/(?P<id>\d+)/(?P<slug>[^/]+)(?:/page(?P<page>\d+)\.html)?/?'
@@ -269,6 +339,7 @@ class HypnotubePlaylistIE(HypnotubeBaseIE):
             if video_id_match:
                 video_id = video_id_match.group(1)
                 yield self.url_result(video_url_without_params, ie_key=HypnotubeVideoIE.ie_key())
+
 
 class HypnotubeFavoritesIE(HypnotubeBaseIE):
     IE_NAME = 'HypnotubeCom:Favorites'
@@ -323,9 +394,6 @@ class HypnotubeFavoritesIE(HypnotubeBaseIE):
         logged_in_username = self._get_user_info()  # Get logged-in username from the profile page
         entries = self._entries(user_id)
         return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
-
-        return self.playlist_result(entries, playlist_id=user_id, playlist_title=f"{logged_in_username} - Favorites")
-
 
 
 class HypnotubeUserIE(HypnotubeBaseIE):
@@ -419,78 +487,3 @@ class HypnotubeChannelsIE(HypnotubeBaseIE):
         channel_name = mobj.group('name')
         entries = self._entries(channel_id, channel_name)
         return self.playlist_result(entries)
-
-
-
-class HypnotubeGalleryIE(HypnotubeBaseIE):
-    IE_NAME = 'HypnotubeCom:Gallery'
-    _VALID_URL = r'https?://(?:www\.)?hypnotube\.com/galleries/.+-(?P<id>\d+)\.html'
-
-    def _real_extract(self, url):
-        gallery_id = self._match_id(url)
-
-        # Modify the URL to include the 'image' parameter
-        if '?image=' in url:
-            url = re.sub(r'\?image=\d+', '?image=1', url)
-        else:
-            url = f'{url}?image=1'
-
-        webpage = self._download_webpage(url, gallery_id)
-        soup = BeautifulSoup(webpage, 'html.parser')
-
-        # Handle access restriction errors
-        access_error = soup.find('div', class_='notification alert')
-        if access_error:
-            error_message = access_error.get_text(strip=True).replace("Click here to view their profile", "").strip()
-            raise ExtractorError(f'Access restricted: {error_message}', expected=True)
-
-        # Extract common metadata using base class methods
-        title = self._extract_title(soup)
-        description = self._extract_description(soup)
-        uploader_id, uploader_name, uploader_url = self._extract_uploader_info(soup)
-
-        # Use the base method to extract video stats (view count and upload date)
-        duration, view_count, upload_date = self._extract_video_stats(soup)
-
-        # Extract the image URLs from the JavaScript 'images.push'
-        image_urls = re.findall(r"images\.push\('(https?://[^\']+)'", webpage)
-
-        # Shared metadata for both the playlist and individual entries
-        common_metadata = {
-            'media_type': "Gallery",
-            'HYPNOTUBE_gallery': "Gallery",
-            'HYPNOTUBE_gallery_id': gallery_id,
-            'HYPNOTUBE_gallery_title': title,
-            'uploader': uploader_name,
-            'uploader_id': uploader_id,
-            'uploader_url': uploader_url,
-            'upload_date': upload_date,
-            'view_count': view_count,
-        }
-
-        # Build playlist entries for each image
-        entries = [
-            {
-                'id': f'{gallery_id}_{idx}',
-                'title': title,
-                'url': img_url,
-                'format_id': img_url.split('.')[-1].split('?')[0],
-                'ext': img_url.split('.')[-1].split('?')[0],
-                **common_metadata,  # Include common metadata in each entry
-            }
-            for idx, img_url in enumerate(image_urls, 1)
-        ]
-
-        # Extract comments using the base class method
-        comments = self._extract_comments(gallery_id)
-
-        # Return the images as a playlist with additional metadata
-        return {
-            '_type': 'playlist',
-            'id': gallery_id,
-            'title': title,
-            'description': description,
-            'comments': comments,
-            'entries': entries,
-            **common_metadata,  # Include common metadata at the playlist level
-        }
