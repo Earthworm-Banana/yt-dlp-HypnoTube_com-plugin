@@ -75,8 +75,14 @@ class HypnotubeBaseIE(InfoExtractor):
             author_id_match = re.search(r'user/([a-zA-Z0-9_-]+)-(\d+)/', author_url) if author_url else None
             author_id = author_id_match.group(2) if author_id_match else None
 
-            # Determine if the user is VIP or normal based on the class of the <a> tag
-            user_status = 'VIP' if author_link and 'name_premium' in author_link.get('class', []) else 'normal'
+            # Correctly determine if the user is VIP or normal based on the class of the <a> tag
+            author_a_tag = comment_block.find('a', href=True)
+            author_membership = ''  # default to NOTHING
+            if author_a_tag:
+                if 'name_premium' in author_a_tag.get('class', []):
+                    author_membership = 'VIP'
+                elif 'name_normal' in author_a_tag.get('class', []):
+                    author_membership = 'normal'
 
             # Extract comment time text
             time_element = comment_block.find('a')
@@ -94,12 +100,13 @@ class HypnotubeBaseIE(InfoExtractor):
                 'author_id': author_id,
                 'author_thumbnail': author_thumbnail,
                 'author_url': author_url,
-                'user_status': user_status,
+                'author_membership': author_membership,
                 '_time_text': _time_text,
                 'text': text,
             })
 
         return comments
+
 
 
 
