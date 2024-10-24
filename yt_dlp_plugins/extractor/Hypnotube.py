@@ -245,7 +245,7 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
         title = self._extract_title(soup)
         description = self._extract_description(soup)
         duration, view_count, upload_date = self._extract_video_stats(soup)
-        formats = self._extract_formats(webpage, url)
+        formats = self._extract_formats(soup, webpage, url)
         thumbnail = self._extract_thumbnail(soup)
         comments = self._extract_comments(video_id)
 
@@ -264,25 +264,77 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
             'comments': comments
         }
 
-    def _extract_formats(self, webpage, url):
-        soup = BeautifulSoup(webpage, 'html.parser')
-        video_elem = soup.find('video', id='thisPlayer')
+    def _extract_formats(self, soup, webpage, url):
+        # Check for new format video element
+        new_video_elem = soup.find('video', id='plyr_player')
+        if new_video_elem:
+            formats = self._extract_new_format(new_video_elem, url)
+        else:
+            # Fallback to the old format video element ('thisPlayer')
+            old_video_elem = soup.find('video', id='thisPlayer')
+            if old_video_elem:
+                formats = self._extract_old_format(old_video_elem, url)
+            else:
+                # If no video element is found, check for notice or raise an error
+                notice_elem = soup.find(id='notice_overl') or soup.find(id='playerOverlay')
+                if notice_elem:
+                    notice_text = notice_elem.get_text(strip=True)
+                    raise ExtractorError(f"Video cannot be accessed, HypnoTube says: {notice_text}", expected=True)
+                raise ExtractorError(f"Could not find video element on the page: {url}")
 
-        if not video_elem:
-            notice_elem = soup.find(id='notice_overl') or soup.find(id='playerOverlay')
-            if notice_elem:
-                notice_text = notice_elem.get_text(strip=True)
-                raise ExtractorError(f"Video cannot be accessed, HypnoTube says: {notice_text}", expected=True)
-            raise ExtractorError(f"Could not find video element on the page: {url}")
+        return formats
 
+    def _extract_new_format(self, video_elem, url):
+        formats = []
+        for source in video_elem.find_all('source'):
+            format_url = source.get('src')
+            format_size = source.get('sizes')
+
+            # Skip if no URL or size is found for the format
+            if not format_url or not format_size:
+                continue
+
+            # Set format preferences based on resolution or labels:
+            if format_size.isdigit():
+                format_size_int = int(format_size)
+                if format_size_int > 720:
+                    preference = 10  # High priority for resolutions above 720p
+                elif format_size_int == 720:
+                    preference = 5  # Same priority for 720p and 'HD'
+                else:
+                    preference = -5  # Lower priority for resolutions below 720p
+            else:
+                # Handle non-numeric labels: 'HD' same priority as 720p, 'SD' lower
+                format_size_lower = format_size.lower()
+                if format_size_lower == 'hd':
+                    preference = 5  # Same priority for 'HD' as 720p
+                elif format_size_lower == 'sd':
+                    preference = -10  # Lower priority for 'SD'
+                else:
+                    preference = -20  # Least priority for other non-numeric formats
+
+            formats.append({
+                'url': format_url,
+                'format_id': format_size,
+                'ext': 'mp4',
+                'preference': preference,
+                'http_headers': {'Referer': 'https://hypnotube.com/index.php'}
+            })
+        return formats
+
+    def _extract_old_format(self, video_elem, url):
         formats = []
         for source in video_elem.find_all('source'):
             format_url = source.get('src')
             format_label = source.get('label')
+
+            # Skip if no URL or label is found for the format
             if not format_url or not format_label:
                 continue
 
+            # Set preference based on label (old format usually had 'HD' and 'SD' labels)
             preference = -10 if format_label.lower() == 'sd' else 0
+
             formats.append({
                 'url': format_url,
                 'format_id': format_label,
@@ -290,11 +342,9 @@ class HypnotubeVideoIE(HypnotubeBaseIE):
                 'preference': preference,
                 'http_headers': {'Referer': 'https://hypnotube.com/index.php'}
             })
-        
-        if not formats:
-            raise ExtractorError(f"Could not extract video formats, the video might be private or restricted: {url}")
-        
+
         return formats
+
 
 
 class HypnotubePlaylistIE(HypnotubeBaseIE):
